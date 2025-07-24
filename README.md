@@ -59,11 +59,18 @@ door-estimator/
 
 ## 🛠️ Installation Guide
 
-### Quick Installation (Recommended)
+### Quick Installation
 
+**For Standard NextCloud:**
 ```bash
 # One-command installation from GitHub
 curl -fsSL https://raw.githubusercontent.com/kdegeek/nextcloud-door-estimator/main/install.sh | sudo bash
+```
+
+**For NextCloud AIO (All-in-One) Containers:**
+```bash
+# AIO-specific installer for containerized environments
+curl -fsSL https://raw.githubusercontent.com/kdegeek/nextcloud-door-estimator/main/install-aio.sh | sudo bash
 ```
 
 ### Manual Installation
@@ -73,8 +80,11 @@ curl -fsSL https://raw.githubusercontent.com/kdegeek/nextcloud-door-estimator/ma
 git clone https://github.com/kdegeek/nextcloud-door-estimator.git
 cd nextcloud-door-estimator
 
-# Run the setup script
+# For standard NextCloud
 sudo ./scripts/setup.sh
+
+# For NextCloud AIO containers
+sudo ./install-aio.sh
 ```
 
 ### Step 2: Install Dependencies
@@ -122,6 +132,8 @@ sudo -u www-data php /var/www/nextcloud/occ door-estimator:import-pricing
 ```
 
 📖 **See [docs/PRICING_DATA_SETUP.md](docs/PRICING_DATA_SETUP.md) for complete pricing data import instructions.**
+
+🐳 **For NextCloud AIO users, see [docs/NEXTCLOUD_AIO_SETUP.md](docs/NEXTCLOUD_AIO_SETUP.md) for container-specific instructions.**
 
 ### Step 6: Verify Installation
 
