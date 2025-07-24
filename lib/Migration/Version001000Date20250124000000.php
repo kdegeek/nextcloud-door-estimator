@@ -53,9 +53,9 @@ class Version001000Date20250124000000 extends SimpleMigrationStep {
             ]);
             
             $table->setPrimaryKey(['id']);
-            $table->addIndex(['category'], 'door_estimator_pricing_category');
-            $table->addIndex(['category', 'subcategory'], 'door_estimator_pricing_cat_subcat');
-            $table->addIndex(['item_name'], 'door_estimator_pricing_item_name');
+            $table->addIndex(['category'], 'de_pricing_cat');
+            $table->addIndex(['category', 'subcategory'], 'de_pricing_cat_sub');
+            $table->addIndex(['item_name'], 'de_pricing_item');
         }
         
         // Create quotes table
@@ -95,8 +95,8 @@ class Version001000Date20250124000000 extends SimpleMigrationStep {
             ]);
             
             $table->setPrimaryKey(['id']);
-            $table->addIndex(['user_id'], 'door_estimator_quotes_user');
-            $table->addIndex(['created_at'], 'door_estimator_quotes_created');
+            $table->addIndex(['user_id'], 'de_quotes_usr');
+            $table->addIndex(['created_at'], 'de_quotes_crt');
         }
         
         return $schema;
