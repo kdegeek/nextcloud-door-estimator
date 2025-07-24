@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>door_estimator</id>
+    <name>Door Estimator</name>
+    <summary>Professional door and hardware estimating system</summary>
+    <description><![CDATA[
+    A comprehensive door and hardware estimating application that replaces Excel-based workflows.
+    Features include real-time pricing lookups, quote management, PDF generation, and administrative 
+    tools for pricing data management.
+    ]]></description>
+    <version>1.0.0</version>
+    <licence>agpl</licence>
+    <author>Millwork Products LLC</author>
+    <namespace>DoorEstimator</namespace>
+    <category>office</category>
+    <bugs>https://github.com/millworkproducts/door-estimator/issues</bugs>
+    <dependencies>
+        <nextcloud min-version="25" max-version="29"/>
+        <php min-version="8.0"/>
+        <database>mysql</database>
+        <database>pgsql</database>
+    </dependencies>
+    <navigations>
+        <navigation>
+            <name>Door Estimator</name>
+            <route>door_estimator.page.index</route>
+            <icon>app.svg</icon>
+        </navigation>
+    </navigations>
+    <settings>
+        <admin>OCA\DoorEstimator\Settings\AdminSettings</admin>
+    </settings>
+</info>

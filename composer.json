@@ -1,0 +1,16 @@
+{
+    "name": "millworkproducts/door-estimator",
+    "description": "NextCloud Door Estimator App",
+    "type": "nextcloud-app",
+    "license": "AGPL-3.0-or-later",
+    "require": {
+        "php": "^8.0",
+        "tecnickcom/tcpdf": "^6.4",
+        "phpoffice/phpspreadsheet": "^1.29"
+    },
+    "autoload": {
+        "psr-4": {
+            "OCA\\DoorEstimator\\": "lib/"
+        }
+    }
+}

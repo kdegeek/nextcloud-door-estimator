@@ -1,0 +1,14 @@
+vendor/
+node_modules/
+*.log
+.env
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Pricing data (keep private)
+scripts/extracted_pricing_data.json
+scripts/pricing_data_import.sql
+scripts/*pricing*.json
+scripts/*pricing*.sql
+*.xlsx
