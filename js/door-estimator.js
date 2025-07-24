@@ -9,7 +9,7 @@
     let app = {
         data: {
             activeTab: 'estimator',
-            darkMode: false,
+            darkMode: true, // Always dark mode
             showImportDialog: false,
             showExportDialog: false,
             showProductManager: false,
@@ -118,24 +118,16 @@
         init() {
             this.loadPricingData();
             this.bindEvents();
+            this.enableDarkMode(); // Always enable dark mode
             this.render();
-            this.checkDarkModePreference();
         },
 
-        // Check for saved dark mode preference
-        checkDarkModePreference() {
-            const saved = localStorage.getItem('door-estimator-dark-mode');
-            if (saved === 'true') {
-                this.toggleDarkMode();
-            }
-        },
-
-        // Toggle dark mode
-        toggleDarkMode() {
-            this.data.darkMode = !this.data.darkMode;
-            document.documentElement.classList.toggle('dark', this.data.darkMode);
-            localStorage.setItem('door-estimator-dark-mode', this.data.darkMode);
-            this.render();
+        // Enable dark mode permanently
+        enableDarkMode() {
+            this.data.darkMode = true;
+            document.documentElement.classList.add('dark');
+            document.body.style.backgroundColor = '#111827';
+            document.body.style.color = '#f3f4f6';
         },
 
         // Bind event listeners
@@ -148,13 +140,7 @@
                 }
             });
 
-            // Dark mode toggle
-            document.addEventListener('click', (e) => {
-                if (e.target.matches('[data-action="toggle-dark-mode"]') || 
-                    e.target.closest('[data-action="toggle-dark-mode"]')) {
-                    this.toggleDarkMode();
-                }
-            });
+            // Remove dark mode toggle - always dark mode
 
             // Import/Export buttons
             document.addEventListener('click', (e) => {
@@ -214,6 +200,8 @@
             this.data.showExportDialog = false;
             this.data.showProductManager = false;
             this.data.importData = '';
+            // Re-enable body scrolling
+            document.body.style.overflow = 'auto';
             this.renderDialogs();
         },
 
@@ -631,6 +619,14 @@
                 document.body.appendChild(dialogContainer);
             }
 
+            // Prevent body scrolling when any dialog is open
+            const hasOpenDialog = this.data.showImportDialog || this.data.showExportDialog || this.data.showProductManager;
+            if (hasOpenDialog) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = 'auto';
+            }
+
             let html = '';
 
             if (this.data.showImportDialog) {
@@ -760,19 +756,17 @@
             const container = document.getElementById('door-estimator-app');
             if (!container) return;
 
-            const bgClass = this.data.darkMode ? 'bg-gray-900' : 'bg-gray-100';
-            const navBgClass = this.data.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
-            const logoClass = this.data.darkMode ? 'text-blue-400' : 'text-blue-600';
-            const titleClass = this.data.darkMode ? 'text-gray-100' : 'text-gray-900';
-            const darkButtonClass = this.data.darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100';
+            const bgClass = 'bg-gray-900'; // Always dark mode
+            // Always use dark mode classes
+            const navBgClass = 'bg-gray-800 border-gray-700';
+            const logoClass = 'text-blue-400';
+            const titleClass = 'text-gray-100';
 
             const estimatorActiveClass = this.data.activeTab === 'estimator' ? 
-                (this.data.darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700') :
-                (this.data.darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100');
+                'bg-blue-900 text-blue-200' : 'text-gray-300 hover:text-gray-100 hover:bg-gray-700';
 
             const adminActiveClass = this.data.activeTab === 'admin' ? 
-                (this.data.darkMode ? 'bg-purple-900 text-purple-200' : 'bg-purple-100 text-purple-700') :
-                (this.data.darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100');
+                'bg-purple-900 text-purple-200' : 'text-gray-300 hover:text-gray-100 hover:bg-gray-700';
 
             container.className = `min-h-screen ${bgClass} transition-colors`;
             container.innerHTML = `
@@ -781,19 +775,15 @@
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div class="flex justify-between h-16">
                             <div class="flex items-center">
-                                <svg class="w-8 h-8 ${logoClass} mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6l1 9H8l1-9zm-4 9v2a2 2 0 002 2h10a2 2 0 002-2v-2M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"></path>
-                                </svg>
+                                <!-- Temporary Door App Icon -->
+                                <div class="w-8 h-8 ${logoClass} mr-3 flex items-center justify-center bg-blue-600 rounded-md">
+                                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 1v10h10V5H5zm6 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
                                 <h1 class="text-xl font-bold ${titleClass}">Door Estimator</h1>
                             </div>
                             <div class="flex items-center space-x-4">
-                                <button data-action="toggle-dark-mode" class="p-2 rounded-md ${darkButtonClass} transition-colors" 
-                                        title="${this.data.darkMode ? 'Switch to light mode' : 'Switch to dark mode'}">
-                                    ${this.data.darkMode ? 
-                                        '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>' :
-                                        '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>'
-                                    }
-                                </button>
                                 <button data-tab="estimator" class="px-4 py-2 rounded-md text-sm font-medium transition-colors ${estimatorActiveClass}">
                                     <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6l1 9H8l1-9zm-4 9v2a2 2 0 002 2h10a2 2 0 002-2v-2M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"></path>
