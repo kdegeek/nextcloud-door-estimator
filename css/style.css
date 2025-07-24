@@ -218,11 +218,39 @@ button:disabled {
     --tw-gradient-to: #6b46c1;
 }
 
+/* Hover effects for dark mode */
+.dark .hover\\:bg-gray-50:hover { background-color: #374151; }
+.dark .hover\\:bg-gray-100:hover { background-color: #4b5563; }
+.dark .hover\\:bg-gray-200:hover { background-color: #6b7280; }
+.dark .hover\\:bg-gray-300:hover { background-color: #9ca3af; }
+
+/* Additional responsive utilities */
+.flex-wrap { flex-wrap: wrap; }
+.space-y-2 > * + * { margin-top: 0.5rem; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.space-x-3 > * + * { margin-left: 0.75rem; }
+
 /* Responsive design */
+@media (max-width: 640px) {
+    .grid-cols-12 {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    
+    .col-span-6 {
+        grid-column: span 3 / span 3;
+    }
+    
+    .col-span-4 {
+        grid-column: span 2 / span 2;
+    }
+}
+
 @media (min-width: 768px) {
     .md\\:grid-cols-2 {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .md\\:flex-row { flex-direction: row; }
+    .md\\:space-y-0 > * + * { margin-top: 0; }
 }
 
 @media (min-width: 640px) {
@@ -271,5 +299,43 @@ button:disabled {
     
     button {
         display: none;
+    }
+    
+    .fixed {
+        position: static !important;
+    }
+    
+    .shadow-lg,
+    .shadow-sm {
+        box-shadow: none !important;
+    }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Focus visible for better keyboard navigation */
+.focus-visible:focus {
+    outline: 2px solid #3182ce;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .border {
+        border-width: 2px;
+    }
+    
+    button {
+        border: 2px solid currentColor;
     }
 }

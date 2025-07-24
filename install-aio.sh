@@ -139,7 +139,7 @@ backup_existing() {
     print_status "Checking for existing installation..."
     
     if docker exec "$AIO_CONTAINER_NAME" test -d "/var/www/html/apps/$APP_NAME" 2>/dev/null; then
-        print_status "Backing up existing installation..."
+        print_status "Existing installation found - creating backup..."
         local backup_name="${APP_NAME}_backup_$(date +%Y%m%d_%H%M%S)"
         
         docker exec "$AIO_CONTAINER_NAME" cp -r "/var/www/html/apps/$APP_NAME" "/var/www/html/apps/$backup_name" || {
@@ -148,6 +148,9 @@ backup_existing() {
         }
         
         print_success "Backup created: /var/www/html/apps/$backup_name"
+        print_status "This is an UPDATE - existing app will be replaced with latest version"
+    else
+        print_status "No existing installation found - this is a fresh INSTALL"
     fi
 }
 

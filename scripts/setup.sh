@@ -106,11 +106,14 @@ check_requirements() {
 # Function to backup existing installation
 backup_existing() {
     if [ -d "$APP_DIR" ]; then
-        print_status "Backing up existing installation..."
+        print_status "Existing installation found - creating backup..."
         BACKUP_DIR="/var/backups/${APP_NAME}_$(date +%Y%m%d_%H%M%S)"
         mkdir -p "/var/backups"
         cp -r "$APP_DIR" "$BACKUP_DIR"
         print_success "Backup created at $BACKUP_DIR"
+        print_status "This is an UPDATE - existing app will be replaced with latest version"
+    else
+        print_status "No existing installation found - this is a fresh INSTALL"
     fi
 }
 
