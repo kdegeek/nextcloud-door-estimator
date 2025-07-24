@@ -125,10 +125,54 @@
     to { transform: rotate(360deg); }
 }
 
+/* Fix scrolling issues */
+html, body {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+}
+
 /* Component-specific styles */
 #door-estimator-app {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Ensure proper contrast for all elements */
+.dark input[type="number"],
+.dark input[type="text"],
+.dark select,
+.dark textarea {
+    background-color: #374151 !important;
+    border-color: #4b5563 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark input[type="number"]:focus,
+.dark input[type="text"]:focus,
+.dark select:focus,
+.dark textarea:focus {
+    border-color: #60a5fa !important;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1) !important;
+}
+
+/* Light mode contrast fixes */
+input[type="number"],
+input[type="text"],
+select,
+textarea {
+    background-color: #ffffff;
+    border-color: #d1d5db;
+    color: #111827;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus,
+select:focus,
+textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Navigation */
@@ -338,4 +382,81 @@ button:disabled {
     button {
         border: 2px solid currentColor;
     }
+}
+
+/* Additional utility classes for the enhanced interface */
+.bg-orange-600 { background-color: #ea580c; }
+.bg-orange-700 { background-color: #c2410c; }
+.hover\\:bg-orange-700:hover { background-color: #c2410c; }
+
+.bg-blue-900 { background-color: #1e3a8a; }
+.bg-purple-800 { background-color: #6b21a8; }
+.bg-purple-900 { background-color: #581c87; }
+.bg-green-900 { background-color: #14532d; }
+.bg-yellow-900 { background-color: #713f12; }
+
+.text-blue-900 { color: #1e3a8a; }
+.text-green-300 { color: #86efac; }
+.text-purple-200 { color: #ddd6fe; }
+.text-blue-200 { color: #bfdbfe; }
+.text-green-100 { color: #dcfce7; }
+.text-yellow-100 { color: #fefce8; }
+
+.border-gray-700 { border-color: #374151; }
+.border-yellow-700 { border-color: #a16207; }
+.border-green-700 { border-color: #15803d; }
+
+.hover\\:bg-purple-700:hover { background-color: #7c3aed; }
+.hover\\:bg-blue-700:hover { background-color: #1d4ed8; }
+.hover\\:bg-green-700:hover { background-color: #15803d; }
+
+/* Dark mode specific overrides */
+.dark .hover\\:bg-gray-50:hover { background-color: #374151; }
+.dark .hover\\:border-gray-200:hover { border-color: #4b5563; }
+.dark .hover\\:border-gray-600:hover { border-color: #6b7280; }
+
+/* Ensure buttons and interactive elements work properly */
+[data-action], [data-tab] {
+    cursor: pointer;
+}
+
+/* Fix modal z-index and overlay */
+.fixed.inset-0 {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+.z-50 { z-index: 50; }
+
+/* Responsive grid fixes */
+@media (max-width: 768px) {
+    .grid-cols-12 {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    .col-span-6 {
+        grid-column: span 3 / span 3;
+    }
+    .col-span-4 {
+        grid-column: span 2 / span 2;
+    }
+    .col-span-2 {
+        grid-column: span 1 / span 1;
+    }
+}
+
+/* Enhanced focus states for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Smooth transitions for all interactive elements */
+button, input, select, textarea {
+    transition: all 0.15s ease-in-out;
 }
