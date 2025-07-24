@@ -1,15 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OCA\DoorEstimator\Migration;
 
 use Closure;
 use OCP\DB\ISchemaWrapper;
-use OCP\Migration\ISimpleMigration;
 use OCP\Migration\IOutput;
+use OCP\Migration\SimpleMigrationStep;
 
-class Version001000Date20250124000000 implements ISimpleMigration {
+class Version001000Date20250124000000 extends SimpleMigrationStep {
     
-    public function changeSchema(IOutput $output, Closure $schemaClosure, array $options) {
+    public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
         /** @var ISchemaWrapper $schema */
         $schema = $schemaClosure();
         
