@@ -122,75 +122,67 @@
             this.render();
         },
 
-        // Enable dark mode permanently
         enableDarkMode() {
-            this.data.darkMode = true;
-            document.documentElement.classList.add('dark');
-            document.body.style.backgroundColor = '#111827';
-            document.body.style.color = '#f3f4f6';
+          toggleDarkMode(true, (mode) => this.data.darkMode = mode);
         },
 
-        // Bind event listeners
+        // Higher-order function for event binding
+        bindEvent(eventType, selector, handler, useClosest = false) {
+            document.addEventListener(eventType, (e) => {
+                if (
+                    (useClosest && e.target.closest(selector)) ||
+                    (!useClosest && e.target.matches(selector))
+                ) {
+                    handler.call(this, e);
+                }
+            });
+        },
+    
+        // Bind event listeners using HOF
         bindEvents() {
             // Tab switching
-            document.addEventListener('click', (e) => {
-                if (e.target.matches('[data-tab]')) {
-                    this.data.activeTab = e.target.dataset.tab;
-                    this.render();
-                }
+            this.bindEvent('click', '[data-tab]', function(e) {
+                this.data.activeTab = e.target.dataset.tab;
+                this.render();
             });
-
-            // Remove dark mode toggle - always dark mode
-
-            // Import/Export buttons
-            document.addEventListener('click', (e) => {
-                if (e.target.matches('[data-action="show-import"]') || 
-                    e.target.closest('[data-action="show-import"]')) {
-                    this.data.showImportDialog = true;
-                    this.renderDialogs();
-                }
-                if (e.target.matches('[data-action="show-export"]') || 
-                    e.target.closest('[data-action="show-export"]')) {
-                    this.data.showExportDialog = true;
-                    this.renderDialogs();
-                }
-                if (e.target.matches('[data-action="show-product-manager"]') || 
-                    e.target.closest('[data-action="show-product-manager"]')) {
-                    this.data.showProductManager = true;
-                    this.renderDialogs();
-                }
-            });
-
+    
+            // Import/Export/Product Manager buttons
+            this.bindEvent('click', '[data-action="show-import"]', function(e) {
+                this.data.showImportDialog = true;
+                this.renderDialogs();
+            }, true);
+            this.bindEvent('click', '[data-action="show-export"]', function(e) {
+                this.data.showExportDialog = true;
+                this.renderDialogs();
+            }, true);
+            this.bindEvent('click', '[data-action="show-product-manager"]', function(e) {
+                this.data.showProductManager = true;
+                this.renderDialogs();
+            }, true);
+    
             // Dialog actions
-            document.addEventListener('click', (e) => {
-                if (e.target.matches('[data-action="close-dialog"]')) {
-                    this.closeAllDialogs();
-                }
-                if (e.target.matches('[data-action="import-data"]')) {
-                    this.handleImport();
-                }
-                if (e.target.matches('[data-action="export-data"]')) {
-                    this.handleExport();
-                }
+            this.bindEvent('click', '[data-action="close-dialog"]', function() {
+                this.closeAllDialogs();
             });
-
+            this.bindEvent('click', '[data-action="import-data"]', function() {
+                this.handleImport();
+            });
+            this.bindEvent('click', '[data-action="export-data"]', function() {
+                this.handleExport();
+            });
+    
             // Input changes
-            document.addEventListener('input', (e) => {
-                if (e.target.matches('[data-field]')) {
-                    this.updateQuoteItem(e.target);
-                }
-                if (e.target.matches('[data-markup]')) {
-                    this.updateMarkup(e.target);
-                }
-                if (e.target.matches('[data-import-data]')) {
-                    this.data.importData = e.target.value;
-                }
+            this.bindEvent('input', '[data-field]', function(e) {
+                this.updateQuoteItem(e.target);
             });
-
-            document.addEventListener('change', (e) => {
-                if (e.target.matches('[data-field]')) {
-                    this.updateQuoteItem(e.target);
-                }
+            this.bindEvent('input', '[data-markup]', function(e) {
+                this.updateMarkup(e.target);
+            });
+            this.bindEvent('input', '[data-import-data]', function(e) {
+                this.data.importData = e.target.value;
+            });
+            this.bindEvent('change', '[data-field]', function(e) {
+                this.updateQuoteItem(e.target);
             });
         },
 
@@ -205,110 +197,99 @@
             this.renderDialogs();
         },
 
-        // Handle data import
         handleImport() {
-            try {
-                const data = JSON.parse(this.data.importData);
-                if (data.pricingData) {
-                    this.data.pricingData = data.pricingData;
-                }
-                if (data.markups) {
-                    this.data.markups = data.markups;
-                }
-                this.closeAllDialogs();
-                this.render();
-                alert('Data imported successfully!');
-            } catch (error) {
-                alert('Invalid JSON format. Please check your data.');
-            }
+          handleImport(this.data.importData, (data) => this.data.pricingData = data, (data) => this.data.markups = data, () => this.closeAllDialogs());
         },
 
-        // Handle data export
         handleExport() {
-            const exportData = {
-                pricingData: this.data.pricingData,
-                markups: this.data.markups,
-                exportDate: new Date().toISOString()
-            };
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'door-estimator-data.json';
-            link.click();
-            URL.revokeObjectURL(url);
-            this.closeAllDialogs();
+          handleExport(this.data.pricingData, this.data.markups, () => this.closeAllDialogs());
         },
 
-        // Update quote item
-        updateQuoteItem(input) {
-            const section = input.dataset.section;
-            const index = parseInt(input.dataset.index);
-            const field = input.dataset.field;
-            const value = input.value;
+            // Update quote item immutably
+            updateQuoteItem(input) {
+                const section = input.dataset.section;
+                const index = parseInt(input.dataset.index);
+                const field = input.dataset.field;
+                const value = input.value;
+        
+                if (!this.data.quoteData[section] || !this.data.quoteData[section][index]) return;
+        
+                // Create a new array for the section, updating only the target item immutably
+                const newSectionArray = this.data.quoteData[section].map((item, idx) => {
+                    if (idx !== index) return item;
+                    const updatedItem = { ...item, [field]: value };
+        
+                    let price = updatedItem.price;
+                    if (field === 'item' || field === 'frameType') {
+                        // Recalculate price based on item selection
+                        if (section === 'frames') {
+                            price = this.lookupPrice('frames', updatedItem.item, updatedItem.frameType);
+                        } else {
+                            price = this.lookupPrice(section, updatedItem.item);
+                        }
+                    }
+                    if (field === 'item' || field === 'frameType') {
+                        updatedItem.price = price;
+                    }
+                    if (field === 'qty' || field === 'price' || field === 'item' || field === 'frameType') {
+                        updatedItem.total = (parseFloat(updatedItem.qty) || 0) * (parseFloat(updatedItem.price) || 0);
+                    }
+                    return updatedItem;
+                });
+        
+                // Assign new quoteData object immutably
+                this.data.quoteData = {
+                    ...this.data.quoteData,
+                    [section]: newSectionArray
+                };
+        
+                this.updateSectionTotal(section);
+                this.updateGrandTotal();
+            },
 
-            if (!this.data.quoteData[section] || !this.data.quoteData[section][index]) return;
-
-            const item = this.data.quoteData[section][index];
-            item[field] = value;
-
-            if (field === 'item' || field === 'frameType') {
-                // Recalculate price based on item selection
-                if (section === 'frames') {
-                    item.price = this.lookupPrice('frames', item.item, item.frameType);
-                } else {
-                    item.price = this.lookupPrice(section, item.item);
-                }
-            }
-
-            if (field === 'qty' || field === 'price') {
-                item.total = (parseFloat(item.qty) || 0) * (parseFloat(item.price) || 0);
-            }
-
-            this.updateSectionTotal(section);
-            this.updateGrandTotal();
-        },
-
-        // Update markup
-        updateMarkup(input) {
-            const markupType = input.dataset.markup;
-            this.data.markups[markupType] = parseFloat(input.value) || 0;
-            this.updateAllSectionTotals();
-            this.updateGrandTotal();
-        },
+            // Update markup immutably
+            updateMarkup(input) {
+                const markupType = input.dataset.markup;
+                const newMarkups = {
+                    ...this.data.markups,
+                    [markupType]: parseFloat(input.value) || 0
+                };
+                this.data.markups = newMarkups;
+                this.updateAllSectionTotals();
+                this.updateGrandTotal();
+            },
 
         // Price lookup function
         lookupPrice(category, item, frameType = null) {
-            if (!item) return 0;
-            
-            let data = this.data.pricingData[category];
-            if (frameType && data && data[frameType]) {
-                data = data[frameType];
-            }
-            
-            if (Array.isArray(data)) {
-                const found = data.find(d => d.item === item);
-                return found ? found.price : 0;
-            }
-            return 0;
+          return lookupPrice(category, item, frameType);
+        },
+      
+        // Calculate section total with markup
+        calculateSectionTotal(section) {
+          const sectionData = this.data.quoteData[section] || [];
+          const subtotal = sectionData.reduce((sum, item) => sum + (item.total || 0), 0);
+      
+          let markup = 0;
+          if (['doors', 'doorOptions', 'inserts'].includes(section)) {
+            markup = this.data.markups.doors;
+          } else if (['frames', 'frameOptions'].includes(section)) {
+            markup = this.data.markups.frames;
+          } else {
+            markup = this.data.markups.hardware;
+          }
+      
+          return subtotal * (1 + markup / 100);
+        },
+      
+        // Calculate grand total
+        calculateGrandTotal() {
+          const sections = Object.keys(this.data.quoteData);
+          return sections.reduce((total, section) => total + this.calculateSectionTotal(section), 0);
         },
 
         // Calculate section total with markup
         calculateSectionTotal(section) {
-            const sectionData = this.data.quoteData[section] || [];
-            const subtotal = sectionData.reduce((sum, item) => sum + (item.total || 0), 0);
-            
-            let markup = 0;
-            if (['doors', 'doorOptions', 'inserts'].includes(section)) {
-                markup = this.data.markups.doors;
-            } else if (['frames', 'frameOptions'].includes(section)) {
-                markup = this.data.markups.frames;
-            } else {
-                markup = this.data.markups.hardware;
-            }
-            
-            return subtotal * (1 + markup / 100);
+          return calculateSectionTotal(section);
         },
 
         // Update section total display
@@ -329,8 +310,7 @@
 
         // Calculate grand total
         calculateGrandTotal() {
-            const sections = Object.keys(this.data.quoteData);
-            return sections.reduce((total, section) => total + this.calculateSectionTotal(section), 0);
+          return calculateGrandTotal();
         },
 
         // Update grand total display
@@ -363,7 +343,10 @@
                     <h3 class="text-lg font-semibold ${textClass} mb-4">${title}</h3>
             `;
 
-            items.forEach((item, index) => {
+            // Higher-order function for mapping over items
+            const mapItems = (arr, fn) => arr.map(fn);
+
+            mapItems(items, (item, index) => {
                 const itemBgClass = this.data.darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900';
                 const labelBgClass = this.data.darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-600';
                 const priceBgClass = this.data.darkMode ? 'bg-gray-600 text-gray-100' : 'bg-gray-50 text-gray-900';
@@ -392,7 +375,7 @@
                         <option value="">Select item...</option>
                 `;
 
-                availableItems.forEach(option => {
+                mapItems(availableItems, (option) => {
                     const selected = option.item === item.item ? 'selected' : '';
                     html += `<option value="${option.item}" ${selected}>${option.item}</option>`;
                 });
@@ -570,7 +553,10 @@
         // Generate product categories HTML for admin
         generateProductCategoriesHTML() {
             let html = '';
-            Object.entries(this.data.pricingData).forEach(([category, items]) => {
+            // Use HOF for mapping over categories
+            const mapItems = (arr, fn) => arr.map(fn);
+
+            mapItems(Object.entries(this.data.pricingData), ([category, items]) => {
                 const cardClass = this.data.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
                 const titleClass = this.data.darkMode ? 'text-gray-100' : 'text-gray-800';
                 const itemBgClass = this.data.darkMode ? 'bg-gray-700' : 'bg-gray-50';
@@ -587,7 +573,7 @@
                 `;
 
                 if (Array.isArray(items)) {
-                    items.forEach(item => {
+                    mapItems(items, item => {
                         html += `
                             <div class="flex justify-between items-center p-3 ${itemBgClass} rounded-md">
                                 <span class="text-sm ${itemTextClass} flex-1 mr-2">${item.item}</span>
@@ -743,13 +729,17 @@
             return html;
         },
 
-        // Remove product
-        removeProduct(category, index) {
-            if (this.data.pricingData[category] && Array.isArray(this.data.pricingData[category])) {
-                this.data.pricingData[category].splice(index, 1);
-                this.renderDialogs();
-            }
-        },
+            // Remove product immutably
+            removeProduct(category, index) {
+                if (this.data.pricingData[category] && Array.isArray(this.data.pricingData[category])) {
+                    const newCategoryArray = this.data.pricingData[category].filter((_, i) => i !== index);
+                    this.data.pricingData = {
+                        ...this.data.pricingData,
+                        [category]: newCategoryArray
+                    };
+                    this.renderDialogs();
+                }
+            },
 
         // Main render function
         render() {

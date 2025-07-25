@@ -33,7 +33,8 @@ apps/door_estimator/
 │   └── app.php
 ├── lib/
 │   ├── Controller/
-│   │   └── EstimatorController.php
+│   │   ├── EstimatorController.php
+│   │   └── PageController.php
 │   ├── Service/
 │   │   └── EstimatorService.php
 │   ├── Migration/
@@ -44,7 +45,6 @@ apps/door_estimator/
 │   └── main.php
 ├── js/
 │   ├── door-estimator.js
-│   └── admin.js
 ├── css/
 │   └── style.css
 ├── composer.json
@@ -197,12 +197,14 @@ sudo -u www-data php /var/www/nextcloud/occ group:adduser estimators username
 
 ### Step 2: Import Script
 
-Use the provided import script or admin interface:
+Use the provided Python extraction script or admin interface:
 
-```php
-// Custom import script example
-php occ door-estimator:import-csv --file=doors.csv --category=doors
-php occ door-estimator:import-csv --file=frames.csv --category=frames --has-subcategories
+```bash
+# Extract data from Excel (if needed)
+python3 scripts/extract_excel_python.py
+
+# Import extracted data
+sudo -u www-data php /var/www/nextcloud/occ door-estimator:import-pricing
 ```
 
 ### Step 3: Verify Data

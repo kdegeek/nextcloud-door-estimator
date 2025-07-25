@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator, Plus, Minus, Save, FileText, Settings, Database, Moon, Sun, Upload, Download, Edit3 } from 'lucide-react';
+import { lookupPrice, calculateSectionTotal, calculateGrandTotal } from './utils/priceUtils';
+import { handleImport, handleExport, toggleDarkMode } from './utils/domUtils';
 
 const DoorEstimatorApp = () => {
   const [activeTab, setActiveTab] = useState('estimator');
@@ -114,51 +116,13 @@ const DoorEstimatorApp = () => {
   });
 
   // Price lookup function - replicates SUMPRODUCT logic
-  const lookupPrice = (category, item, frameType = null) => {
-    if (!item) return 0;
-    
-    let data = pricingData[category];
-    if (frameType && data[frameType]) {
-      data = data[frameType];
-    }
-    
-    if (Array.isArray(data)) {
-      const found = data.find(d => d.item === item);
-      return found ? found.price : 0;
-    }
-    return 0;
-  };
-
-  // Update item and recalculate price
-  const updateQuoteItem = (section, index, field, value) => {
-    setQuoteData(prev => {
-      const newData = { ...prev };
-      const item = { ...newData[section][index] };
-      item[field] = value;
-      
-      if (field === 'item' || field === 'frameType') {
-        // Recalculate price based on item selection
-        if (section === 'frames') {
-          item.price = lookupPrice('frames', item.item, item.frameType);
-        } else {
-          item.price = lookupPrice(section, item.item);
-        }
-      }
-      
-      if (field === 'qty' || field === 'price') {
-        item.total = (parseFloat(item.qty) || 0) * (parseFloat(item.price) || 0);
-      }
-      
-      newData[section][index] = item;
-      return newData;
-    });
-  };
+  const lookupPrice = (category, item, frameType = null) => lookupPrice(category, item, frameType);
 
   // Calculate section totals with markups
-  const calculateSectionTotal = (section) => {
+  const calculateSectionTotal = (section: string) => {
     const sectionData = quoteData[section] || [];
     const subtotal = sectionData.reduce((sum, item) => sum + (item.total || 0), 0);
-    
+  
     // Apply markup based on section
     let markup = 0;
     if (['doors', 'doorOptions', 'inserts'].includes(section)) {
@@ -168,7 +132,7 @@ const DoorEstimatorApp = () => {
     } else {
       markup = markups.hardware;
     }
-    
+  
     return subtotal * (1 + markup / 100);
   };
 
@@ -178,143 +142,150 @@ const DoorEstimatorApp = () => {
     return sections.reduce((total, section) => total + calculateSectionTotal(section), 0);
   };
 
-  // Dark mode toggle
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    document.documentElement.classList.toggle('dark', !darkMode);
+  // Update item and recalculate price
+  const updateQuoteItem = (section, index, field, value) => {
+    setQuoteData(prev => {
+      // Create a new array for the section, updating only the target item immutably
+      const newSectionArray = prev[section].map((item, idx) => {
+        if (idx !== index) return item;
+        const updatedItem = { ...item, [field]: value };
+  
+        let price = updatedItem.price;
+        if (field === 'item' || field === 'frameType') {
+          // Recalculate price based on item selection
+          if (section === 'frames') {
+            price = lookupPrice('frames', updatedItem.item, updatedItem.frameType);
+          } else {
+            price = lookupPrice(section, updatedItem.item);
+          }
+        }
+        // Always recalculate price if item or frameType changed
+        if (field === 'item' || field === 'frameType') {
+          updatedItem.price = price;
+        }
+  
+        // Always recalculate total if qty or price changed
+        if (field === 'qty' || field === 'price' || field === 'item' || field === 'frameType') {
+          updatedItem.total = (parseFloat(updatedItem.qty) || 0) * (parseFloat(updatedItem.price) || 0);
+        }
+  
+        return updatedItem;
+      });
+  
+      return {
+        ...prev,
+        [section]: newSectionArray
+      };
+    });
   };
 
-  // Import/Export functions
-  const handleImport = () => {
-    try {
-      const data = JSON.parse(importData);
-      if (data.pricingData) {
-        setPricingData(data.pricingData);
-      }
-      if (data.markups) {
-        setMarkups(data.markups);
-      }
-      setShowImportDialog(false);
-      setImportData('');
-      alert('Data imported successfully!');
-    } catch (error) {
-      alert('Invalid JSON format. Please check your data.');
-    }
-  };
 
-  const handleExport = () => {
-    const exportData = {
-      pricingData,
-      markups,
-      exportDate: new Date().toISOString()
-    };
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'door-estimator-data.json';
-    link.click();
-    URL.revokeObjectURL(url);
-    setShowExportDialog(false);
-  };
 
   // Product management functions
   const addProduct = (category, product) => {
     setPricingData(prev => {
-      const newData = { ...prev };
-      if (Array.isArray(newData[category])) {
-        newData[category] = [...newData[category], product];
+      if (Array.isArray(prev[category])) {
+        return {
+          ...prev,
+          [category]: [...prev[category], product]
+        };
       }
-      return newData;
+      return prev;
     });
   };
 
   const removeProduct = (category, index) => {
     setPricingData(prev => {
-      const newData = { ...prev };
-      if (Array.isArray(newData[category])) {
-        newData[category] = newData[category].filter((_, i) => i !== index);
+      if (Array.isArray(prev[category])) {
+        return {
+          ...prev,
+          [category]: prev[category].filter((_, i) => i !== index)
+        };
       }
-      return newData;
+      return prev;
     });
   };
 
   const updateProduct = (category, index, product) => {
     setPricingData(prev => {
-      const newData = { ...prev };
-      if (Array.isArray(newData[category])) {
-        newData[category][index] = product;
+      if (Array.isArray(prev[category])) {
+        return {
+          ...prev,
+          [category]: prev[category].map((item, i) => (i === index ? product : item))
+        };
       }
-      return newData;
+      return prev;
     });
   };
 
-  // Render quote section with improved layout
-  const renderQuoteSection = (title, sectionKey, hasFrameType = false) => {
-    const items = quoteData[sectionKey] || [];
-    const availableItems = hasFrameType ? 
-      (pricingData[sectionKey]?.[items[0]?.frameType] || []) :
-      (pricingData[sectionKey] || []);
-
-    return (
-      <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border p-6 mb-6 quote-section`}>
-        <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>{title}</h3>
-        
-        {items.map((item, index) => (
-          <div key={item.id} className="grid grid-cols-12 gap-3 mb-4 items-center p-3 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
-            <div className={`text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center bg-gray-100 dark:bg-gray-600 rounded-md px-3 py-2`}>{item.id}</div>
-            
-            {hasFrameType && (
+    // Higher-order function to map over items and render a component
+    const mapItems = (items, renderFn) => items.map((item, idx) => renderFn(item, idx));
+  
+    // Higher-order function to render a quote section
+    const renderQuoteSection = (title, sectionKey, hasFrameType = false) => {
+      const items = quoteData[sectionKey] || [];
+      const availableItems = hasFrameType ?
+        (pricingData[sectionKey]?.[items[0]?.frameType] || []) :
+        (pricingData[sectionKey] || []);
+  
+      return (
+        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border p-6 mb-6 quote-section`}>
+          <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>{title}</h3>
+          
+          {mapItems(items, (item, index) => (
+            <div key={item.id} className="grid grid-cols-12 gap-3 mb-4 items-center p-3 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
+              <div className={`text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center bg-gray-100 dark:bg-gray-600 rounded-md px-3 py-2`}>{item.id}</div>
+              
+              {hasFrameType && (
+                <select
+                  className={`col-span-2 px-3 py-2 border rounded-md text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                  value={item.frameType || ''}
+                  onChange={(e) => updateQuoteItem(sectionKey, index, 'frameType', e.target.value)}
+                >
+                  <option value="HM Drywall">HM Drywall</option>
+                  <option value="HM EWA">HM EWA</option>
+                  <option value="HM USA">HM USA</option>
+                </select>
+              )}
+              
               <select
-                className={`col-span-2 px-3 py-2 border rounded-md text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                value={item.frameType || ''}
-                onChange={(e) => updateQuoteItem(sectionKey, index, 'frameType', e.target.value)}
+                className={`${hasFrameType ? 'col-span-4' : 'col-span-6'} px-3 py-2 border rounded-md text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                value={item.item}
+                onChange={(e) => updateQuoteItem(sectionKey, index, 'item', e.target.value)}
               >
-                <option value="HM Drywall">HM Drywall</option>
-                <option value="HM EWA">HM EWA</option>
-                <option value="HM USA">HM USA</option>
+                <option value="">Select item...</option>
+                {mapItems(availableItems, (option, idx) => (
+                  <option key={idx} value={option.item}>{option.item}</option>
+                ))}
               </select>
-            )}
-            
-            <select
-              className={`${hasFrameType ? 'col-span-4' : 'col-span-6'} px-3 py-2 border rounded-md text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-              value={item.item}
-              onChange={(e) => updateQuoteItem(sectionKey, index, 'item', e.target.value)}
-            >
-              <option value="">Select item...</option>
-              {availableItems.map((option, idx) => (
-                <option key={idx} value={option.item}>{option.item}</option>
-              ))}
-            </select>
-            
-            <input
-              type="number"
-              className={`col-span-1 px-3 py-2 border rounded-md text-sm text-center ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-              placeholder="Qty"
-              value={item.qty || ''}
-              onChange={(e) => updateQuoteItem(sectionKey, index, 'qty', e.target.value)}
-            />
-            
-            <div className={`col-span-2 px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-100' : 'bg-gray-50 text-gray-900'} rounded-md text-sm text-right font-mono`}>
-              ${(item.price || 0).toFixed(2)}
+              
+              <input
+                type="number"
+                className={`col-span-1 px-3 py-2 border rounded-md text-sm text-center ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                placeholder="Qty"
+                value={item.qty || ''}
+                onChange={(e) => updateQuoteItem(sectionKey, index, 'qty', e.target.value)}
+              />
+              
+              <div className={`col-span-2 px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-100' : 'bg-gray-50 text-gray-900'} rounded-md text-sm text-right font-mono`}>
+                ${(item.price || 0).toFixed(2)}
+              </div>
+              
+              <div className={`col-span-2 px-3 py-2 ${darkMode ? 'bg-blue-900 text-blue-100' : 'bg-blue-50 text-blue-900'} rounded-md text-sm font-bold text-right font-mono`}>
+                ${(item.total || 0).toFixed(2)}
+              </div>
             </div>
-            
-            <div className={`col-span-2 px-3 py-2 ${darkMode ? 'bg-blue-900 text-blue-100' : 'bg-blue-50 text-blue-900'} rounded-md text-sm font-bold text-right font-mono`}>
-              ${(item.total || 0).toFixed(2)}
+          ))}
+          
+          <div className={`border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'} pt-4 mt-6`}>
+            <div className="flex justify-between items-center text-sm">
+              <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Subtotal:</span>
+              <span className={`${darkMode ? 'text-gray-100' : 'text-gray-900'} font-bold text-lg font-mono`}>${calculateSectionTotal(sectionKey).toFixed(2)}</span>
             </div>
-          </div>
-        ))}
-        
-        <div className={`border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'} pt-4 mt-6`}>
-          <div className="flex justify-between items-center text-sm">
-            <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Subtotal:</span>
-            <span className={`${darkMode ? 'text-gray-100' : 'text-gray-900'} font-bold text-lg font-mono`}>${calculateSectionTotal(sectionKey).toFixed(2)}</span>
           </div>
         </div>
-      </div>
-    );
-  };
+      );
+    };
 
   // Main estimator interface
   const renderEstimator = () => (
@@ -441,13 +412,13 @@ const DoorEstimatorApp = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Object.entries(pricingData).map(([category, items]) => (
+        {mapItems(Object.entries(pricingData), ([category, items]) => (
           <div key={category} className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border p-6`}>
             <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'} mb-4 capitalize`}>
               {category.replace(/([A-Z])/g, ' $1').trim()}
             </h3>
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {Array.isArray(items) ? items.map((item, idx) => (
+              {Array.isArray(items) ? mapItems(items, (item, idx) => (
                 <div key={idx} className={`flex justify-between items-center p-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-md`}>
                   <span className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'} flex-1 mr-2`}>{item.item}</span>
                   <span className={`text-sm font-bold ${darkMode ? 'text-green-400' : 'text-green-600'} font-mono`}>${item.price}</span>
@@ -484,7 +455,7 @@ const DoorEstimatorApp = () => {
             Cancel
           </button>
           <button
-            onClick={handleImport}
+            onClick={() =&gt; handleImport(importData, setPricingData, setMarkups, setShowImportDialog)}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             Import
@@ -509,7 +480,7 @@ const DoorEstimatorApp = () => {
             Cancel
           </button>
           <button
-            onClick={handleExport}
+            onClick={() => handleExport(pricingData, markups, setShowExportDialog)}
             className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
           >
             Download
@@ -532,13 +503,13 @@ const DoorEstimatorApp = () => {
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(pricingData).filter(([_, items]) => Array.isArray(items)).map(([category, items]) => (
+          {mapItems(Object.entries(pricingData).filter(([_, items]) => Array.isArray(items)), ([category, items]) => (
             <div key={category} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4`}>
               <h4 className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-800'} mb-3 capitalize`}>
                 {category.replace(/([A-Z])/g, ' $1').trim()}
               </h4>
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {items.map((item, idx) => (
+                {mapItems(items, (item, idx) => (
                   <div key={idx} className={`flex items-center justify-between p-2 ${darkMode ? 'bg-gray-600' : 'bg-white'} rounded text-xs`}>
                     <span className={`flex-1 mr-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{item.item.substring(0, 30)}...</span>
                     <span className={`font-mono font-bold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>${item.price}</span>
@@ -570,7 +541,7 @@ const DoorEstimatorApp = () => {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={toggleDarkMode}
+                onClick={() => toggleDarkMode(darkMode, setDarkMode)}
                 className={`p-2 rounded-md ${darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} transition-colors`}
                 title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >

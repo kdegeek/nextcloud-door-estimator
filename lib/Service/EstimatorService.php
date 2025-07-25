@@ -2,92 +2,38 @@
 
 namespace OCA\DoorEstimator\Service;
 
-use OCP\IDBConnection;
 use OCP\IUserSession;
 use OCP\Files\IAppData;
 use OCP\IConfig;
 use OCP\Files\NotFoundException;
+use OCA\DoorEstimator\Service\EstimatorUtils;
+use OCA\DoorEstimator\Repository\EstimatorRepository;
 
 class EstimatorService {
     
-    private $db;
     private $userSession;
     private $appData;
     private $config;
-    
-    public function __construct(IDBConnection $db, IUserSession $userSession, IAppData $appData, IConfig $config) {
-        $this->db = $db;
+    private $repository;
+
+    public function __construct(
+        EstimatorRepository $repository,
+        IUserSession $userSession,
+        IAppData $appData,
+        IConfig $config
+    ) {
+        $this->repository = $repository;
         $this->userSession = $userSession;
         $this->appData = $appData;
         $this->config = $config;
     }
     
     public function getAllPricingData(): array {
-        $qb = $this->db->getQueryBuilder();
-        
-        $result = $qb->select('*')
-            ->from('door_estimator_pricing')
-            ->orderBy('category')
-            ->addOrderBy('subcategory')
-            ->addOrderBy('item_name')
-            ->execute();
-            
-        $data = [];
-        while ($row = $result->fetch()) {
-            $category = $row['category'];
-            
-            if (!isset($data[$category])) {
-                $data[$category] = [];
-            }
-            
-            if ($row['subcategory']) {
-                if (!isset($data[$category][$row['subcategory']])) {
-                    $data[$category][$row['subcategory']] = [];
-                }
-                $data[$category][$row['subcategory']][] = [
-                    'id' => (int)$row['id'],
-                    'item' => $row['item_name'],
-                    'price' => (float)$row['price'],
-                    'stock_status' => $row['stock_status'],
-                    'description' => $row['description']
-                ];
-            } else {
-                $data[$category][] = [
-                    'id' => (int)$row['id'],
-                    'item' => $row['item_name'],
-                    'price' => (float)$row['price'],
-                    'stock_status' => $row['stock_status'],
-                    'description' => $row['description']
-                ];
-            }
-        }
-        
-        return $data;
+        return $this->repository->getAllPricingData();
     }
     
     public function getPricingByCategory(string $category): array {
-        $qb = $this->db->getQueryBuilder();
-        
-        $result = $qb->select('*')
-            ->from('door_estimator_pricing')
-            ->where($qb->expr()->eq('category', $qb->createNamedParameter($category)))
-            ->orderBy('subcategory')
-            ->addOrderBy('item_name')
-            ->execute();
-            
-        $items = [];
-        while ($row = $result->fetch()) {
-            $items[] = [
-                'id' => (int)$row['id'],
-                'item' => $row['item_name'],
-                'price' => (float)$row['price'],
-                'subcategory' => $row['subcategory'],
-                'stock_status' => $row['stock_status'],
-                'description' => $row['description']
-            ];
-        }
-        
-        return $items;
+        return $this->repository->getPricingByCategory($category);
     }
     
     public function lookupPrice(string $category, string $item, ?string $frameType = null): float {
@@ -144,7 +90,7 @@ class EstimatorService {
         $userId = $this->userSession->getUser()->getUID();
         $qb = $this->db->getQueryBuilder();
         
-        $totalAmount = $this->calculateQuoteTotal($quoteData, $markups);
+        $totalAmount = EstimatorUtils::calculateQuoteTotal($quoteData, $markups);
         
         $qb->insert('door_estimator_quotes')
             ->values([
@@ -358,7 +304,7 @@ class EstimatorService {
         
         foreach ($quoteData as $sectionKey => $items) {
             if (!empty($items) && is_array($items)) {
-                $sectionName = $this->formatSectionName($sectionKey);
+                $sectionName = EstimatorUtils::formatSectionName($sectionKey);
                 $sectionSubtotal = 0;
                 $hasItems = false;
                 
@@ -392,7 +338,7 @@ class EstimatorService {
                 }
                 
                 // Apply markup
-                $markup = $this->getSectionMarkup($sectionKey, $markups);
+                $markup = EstimatorUtils::getSectionMarkup($sectionKey, $markups);
                 $sectionTotal = $sectionSubtotal * (1 + $markup / 100);
                 $grandTotal += $sectionTotal;
                 
@@ -420,50 +366,7 @@ class EstimatorService {
         return $html;
     }
     
-    private function formatSectionName(string $sectionKey): string {
-        $names = [
-            'doors' => 'Doors',
-            'doorOptions' => 'Door Options',
-            'inserts' => 'Glass Inserts',
-            'frames' => 'Frames',
-            'frameOptions' => 'Frame Options',
-            'hinges' => 'Hinges',
-            'weatherstrip' => 'Weatherstrip',
-            'closers' => 'Door Closers',
-            'locksets' => 'Locksets',
-            'exitDevices' => 'Exit Devices',
-            'hardware' => 'Hardware'
-        ];
-        
-        return $names[$sectionKey] ?? ucwords(str_replace(['_', 'Options'], [' ', ' Options'], $sectionKey));
-    }
     
-    private function getSectionMarkup(string $sectionKey, array $markups): float {
-        if (in_array($sectionKey, ['doors', 'doorOptions', 'inserts'])) {
-            return $markups['doors'] ?? 15;
-        } elseif (in_array($sectionKey, ['frames', 'frameOptions'])) {
-            return $markups['frames'] ?? 12;
-        }
-        return $markups['hardware'] ?? 18;
-    }
-    
-    private function calculateQuoteTotal(array $quoteData, array $markups): float {
-        $total = 0;
-        
-        foreach ($quoteData as $sectionKey => $items) {
-            if (is_array($items)) {
-                $sectionSubtotal = 0;
-                foreach ($items as $item) {
-                    $sectionSubtotal += ($item['qty'] ?? 0) * ($item['price'] ?? 0);
-                }
-                
-                $markup = $this->getSectionMarkup($sectionKey, $markups);
-                $total += $sectionSubtotal * (1 + $markup / 100);
-            }
-        }
-        
-        return $total;
-    }
     
     public function importPricingFromUpload(array $uploadedFile): array {
         // Implementation for bulk import from uploaded CSV/Excel files

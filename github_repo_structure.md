@@ -43,7 +43,8 @@ door-estimator-nextcloud/
 │   ├── api.md
 │   └── migration-guide.md
 ├── scripts/
-│   ├── import-excel-data.php
+│   ├── extract_excel_python.py
+│   ├── extracted_pricing_data.json
 │   └── setup.sh
 ├── tests/
 │   ├── Unit/
@@ -96,11 +97,11 @@ A professional door and hardware estimating application for NextCloud that moder
 
 ## Installation
 
-See [docs/installation.md](docs/installation.md) for complete setup instructions.
+See [docs/INSTALLATION.md](docs/INSTALLATION.md) for complete setup instructions.
 
 ## Migration from Excel
 
-See [docs/migration-guide.md](docs/migration-guide.md) for steps to import your existing Excel data.
+See [docs/PRICING_DATA_SETUP.md](docs/PRICING_DATA_SETUP.md) for steps to import your existing Excel data.
 
 ## License
 
@@ -519,7 +520,7 @@ function importCsvFile($file, $category) {
 
 ### 7. Documentation
 
-#### docs/installation.md
+#### docs/INSTALLATION.md
 ```markdown
 # Installation Guide
 
@@ -534,7 +535,7 @@ function importCsvFile($file, $category) {
 1. **Download the app**
    ```bash
    cd /var/www/nextcloud/apps/
-   git clone https://github.com/yourusername/door-estimator-nextcloud.git door_estimator
+   git clone https://github.com/kdegeek/nextcloud-door-estimator.git door_estimator
    ```
 
 2. **Install dependencies**

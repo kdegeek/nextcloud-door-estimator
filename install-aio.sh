@@ -207,8 +207,7 @@ set_permissions() {
     # Make scripts executable
     docker exec "$AIO_CONTAINER_NAME" chmod +x "/var/www/html/apps/$APP_NAME/scripts"/*.sh 2>/dev/null || true
     docker exec "$AIO_CONTAINER_NAME" chmod +x "/var/www/html/apps/$APP_NAME/scripts"/*.py 2>/dev/null || true
-    docker exec "$AIO_CONTAINER_NAME" chmod +x "/var/www/html/apps/$APP_NAME/install.sh" 2>/dev/null || true
-    
+
     print_success "Permissions set successfully"
 }
 

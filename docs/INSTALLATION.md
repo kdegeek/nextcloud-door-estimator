@@ -1,5 +1,6 @@
 # Door Estimator - Installation Guide
 
+
 Complete step-by-step installation instructions for the Door Estimator NextCloud app.
 
 ## 📋 Pre-Installation Checklist
@@ -36,15 +37,15 @@ sudo -u www-data php /var/www/nextcloud/occ db:show-tables | head -5
 
 #### Step 1: Prepare the Installation
 
+
 ```bash
 # Navigate to NextCloud apps directory
 cd /var/www/nextcloud/apps/
 
-# Create the door_estimator directory
-sudo mkdir door_estimator
+# Clone the repository
+git clone https://github.com/kdegeek/nextcloud-door-estimator.git door_estimator
 cd door_estimator
 ```
-
 #### Step 2: Copy Application Files
 
 Copy all the application files to the door_estimator directory:
@@ -266,6 +267,296 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 ```
 
 ## 🚨 Troubleshooting Installation Issues
+
+### Common Issues and Solutions
+
+#### 1. Static Server Setup
+- **Problem**: The static server is not running or not accessible.
+- **Solution**: Ensure the static server is running by executing the following command:
+  ```bash
+  python3 -m http.server 8000
+  ```
+  Then, access the demo at `http://localhost:8000`.
+
+#### 2. Browser Errors
+- **Problem**: Browser console shows JavaScript errors.
+- **Solution**: Check the browser console for specific error messages. Common issues include:
+  - Missing files: Ensure all required files are present in the correct locations.
+  - CORS issues: If running locally, ensure the server allows CORS.
+
+#### 3. Python Environment Issues
+- **Problem**: Python scripts fail to execute.
+- **Solution**: Ensure Python 3 is installed and accessible. Verify dependencies:
+  ```bash
+  pip3 install pandas openpyxl
+  ```
+  Check Python version:
+  ```bash
+  python3 --version
+  ```
+
+#### 4. Missing Pricing Data
+- **Problem**: Pricing data is not loading.
+- **Solution**: Verify the `extracted_pricing_data.json` file exists and is correctly formatted. Run:
+  ```bash
+  python3 -m json.tool scripts/extracted_pricing_data.json
+  ```
+
+#### 5. Database Connection Issues
+- **Problem**: Database operations fail.
+- **Solution**: Ensure the database server is running and accessible. Check connection details in configuration files.
+
+#### 6. Permission Errors
+- **Problem**: Permission denied errors during installation.
+- **Solution**: Ensure proper file permissions:
+  ```bash
+  sudo chown -R www-data:www-data /var/www/nextcloud/apps/door_estimator
+  sudo chmod -R 755 /var/www/nextcloud/apps/door_estimator
+  ```
+
+#### 7. App Not Enabling
+- **Problem**: The app does not enable in Nextcloud.
+- **Solution**: Check Nextcloud logs for errors:
+  ```bash
+  tail -f /var/www/nextcloud/data/nextcloud.log | grep door_estimator
+  ```
+  Verify app structure and syntax:
+  ```bash
+  sudo -u www-data php -l /var/www/nextcloud/apps/door_estimator/appinfo/info.xml
+  ```
+
+#### 8. Data Import Fails
+- **Problem**: Pricing data import fails.
+- **Solution**: Check JSON file format and run import with verbose output:
+  ```bash
+  sudo -u www-data php /var/www/nextcloud/occ door-estimator:import-pricing -v
+  ```
+  Verify imported data:
+  ```bash
+  mysql -u nextcloud_user -p nextcloud_db -e "SELECT category, COUNT(*) FROM oc_door_estimator_pricing GROUP BY category;"
+  ```
+
+#### 9. Slow Performance
+- **Problem**: The application is slow to load or respond.
+- **Solution**: Optimize the server environment and ensure no other processes are consuming resources. Check server logs for performance bottlenecks.
+
+#### 10. Missing Dependencies
+- **Problem**: Missing PHP or JavaScript dependencies.
+- **Solution**: Ensure all required dependencies are installed. For PHP:
+  ```bash
+  sudo -u www-data composer install --no-dev --optimize-autoloader
+  ```
+  For JavaScript, ensure all npm packages are installed:
+  ```bash
+  npm install
+  ```
+
+#### 11. Configuration Issues
+- **Problem**: Incorrect configuration settings.
+- **Solution**: Verify configuration files (`config.php`, `appinfo/info.xml`) for correct settings. Ensure all paths and URLs are correct.
+
+#### 12. Log Analysis
+- **Problem**: Need to analyze logs for errors.
+- **Solution**: Check Nextcloud, Apache/Nginx, and PHP logs:
+  ```bash
+  tail -f /var/www/nextcloud/data/nextcloud.log | grep -i "door_estimator\|error"
+  tail -f /var/log/apache2/error.log  # Apache
+  tail -f /var/log/nginx/error.log    # Nginx
+  tail -f /var/log/php7.4-fpm.log     # Adjust PHP version
+  ```
+
+#### 13. Browser Caching Issues
+- **Problem**: Browser shows outdated version of the app.
+- **Solution**: Clear browser cache or use an incognito window to test changes.
+
+#### 14. File Not Found Errors
+- **Problem**: "File not found" errors in the browser.
+- **Solution**: Verify all required files are present and correctly referenced in the code. Check file paths and ensure no typos.
+
+#### 15. Incompatible Browser
+- **Problem**: The app does not work in certain browsers.
+- **Solution**: Ensure the app is tested in supported browsers (e.g., Chrome, Firefox, Edge). Check for browser-specific issues or bugs.
+
+#### 16. Missing API Endpoints
+- **Problem**: API endpoints are not responding.
+- **Solution**: Verify the server is running and the endpoints are correctly defined. Check server logs for any errors related to API requests.
+
+#### 17. Incorrect File Permissions
+- **Problem**: Incorrect file permissions causing access issues.
+- **Solution**: Ensure files and directories have the correct permissions:
+  ```bash
+  sudo chown -R www-data:www-data /var/www/nextcloud/apps/door_estimator
+  sudo chmod -R 755 /var/www/nextcloud/apps/door_estimator
+  ```
+
+#### 18. Database Migration Issues
+- **Problem**: Database migration fails.
+- **Solution**: Check migration scripts for errors and run manually if needed:
+  ```bash
+  sudo -u www-data php /var/www/nextcloud/occ migrations:execute door_estimator 001000
+  ```
+  Verify migration status:
+  ```bash
+  sudo -u www-data php /var/www/nextcloud/occ migrations:status door_estimator
+  ```
+
+#### 19. Missing Environment Variables
+- **Problem**: Missing environment variables causing app to fail.
+- **Solution**: Ensure all required environment variables are set. Check `.env` file or server configuration.
+
+#### 20. Incorrect Database Credentials
+- **Problem**: Database connection fails due to incorrect credentials.
+- **Solution**: Verify database credentials in configuration files and ensure they match the database settings.
+
+#### 21. Missing Composer Packages
+- **Problem**: Missing PHP packages causing app to fail.
+- **Solution**: Ensure all required PHP packages are installed:
+  ```bash
+  sudo -u www-data composer install --no-dev --optimize-autoloader
+  ```
+
+#### 22. Incorrect File Paths
+- **Problem**: Incorrect file paths causing file not found errors.
+- **Solution**: Verify all file paths in the code are correct and match the actual file locations.
+
+#### 23. Missing JavaScript Libraries
+- **Problem**: Missing JavaScript libraries causing frontend issues.
+- **Solution**: Ensure all required JavaScript libraries are installed:
+  ```bash
+  npm install
+  ```
+
+#### 24. Incorrect Server Configuration
+- **Problem**: Incorrect server configuration causing app to fail.
+- **Solution**: Verify server configuration files (`apache2.conf`, `nginx.conf`, `php.ini`) for correct settings.
+
+#### 25. Missing PHP Extensions
+- **Problem**: Missing PHP extensions causing app to fail.
+- **Solution**: Ensure all required PHP extensions are installed and enabled:
+  ```bash
+  php -m | grep -E "(pdo|mysql|pgsql|json|curl)"
+  ```
+
+#### 26. Incorrect Database Schema
+- **Problem**: Incorrect database schema causing database operations to fail.
+- **Solution**: Verify database schema matches the expected structure. Check migration scripts for any issues.
+
+#### 27. Missing API Keys
+- **Problem**: Missing API keys causing external services to fail.
+- **Solution**: Ensure all required API keys are set in the configuration files.
+
+#### 28. Incorrect Timezone Settings
+- **Problem**: Incorrect timezone settings causing date/time issues.
+- **Solution**: Verify timezone settings in configuration files and ensure they match the server timezone.
+
+#### 29. Missing Cron Jobs
+- **Problem**: Missing cron jobs causing scheduled tasks to fail.
+- **Solution**: Ensure all required cron jobs are set up and running:
+  ```bash
+  crontab -l
+  ```
+
+#### 30. Incorrect File Encoding
+- **Problem**: Incorrect file encoding causing file read errors.
+- **Solution**: Ensure all files are saved with the correct encoding (UTF-8). Check file encoding settings in the editor.
+
+#### 31. Missing Environment Setup
+- **Problem**: Missing environment setup causing app to fail.
+- **Solution**: Ensure the environment is set up correctly. Check `.env` file or server configuration for any missing settings.
+
+#### 32. Incorrect File Ownership
+- **Problem**: Incorrect file ownership causing permission issues.
+- **Solution**: Ensure files and directories have the correct ownership:
+  ```bash
+  sudo chown -R www-data:www-data /var/www/nextcloud/apps/door_estimator
+  ```
+
+#### 33. Missing Database Indexes
+- **Problem**: Missing database indexes causing slow queries.
+- **Solution**: Ensure all required database indexes are created. Check migration scripts for any missing indexes.
+
+#### 34. Incorrect Server Port
+- **Problem**: Incorrect server port causing connection issues.
+- **Solution**: Verify server port settings in configuration files and ensure they match the actual server port.
+
+#### 35. Missing SSL Certificate
+- **Problem**: Missing SSL certificate causing secure connections to fail.
+- **Solution**: Ensure an SSL certificate is installed and configured correctly. Check server logs for any SSL-related errors.
+
+#### 36. Incorrect File Upload Settings
+- **Problem**: Incorrect file upload settings causing uploads to fail.
+- **Solution**: Verify file upload settings in configuration files and ensure they match the server settings.
+
+#### 37. Missing Database Backups
+- **Problem**: Missing database backups causing data loss.
+- **Solution**: Ensure regular database backups are set up and running:
+  ```bash
+  mysqldump nextcloud_db > /var/backups/nextcloud_db_$(date +%Y%m%d).sql
+  ```
+
+#### 38. Incorrect Server Time
+- **Problem**: Incorrect server time causing time-related issues.
+- **Solution**: Verify server time settings and ensure they match the actual time. Check server logs for any time-related errors.
+
+#### 39. Missing Database Triggers
+- **Problem**: Missing database triggers causing data inconsistencies.
+- **Solution**: Ensure all required database triggers are created. Check migration scripts for any missing triggers.
+
+#### 40. Incorrect File Permissions for Logs
+- **Problem**: Incorrect file permissions for logs causing log write failures.
+- **Solution**: Ensure log files have the correct permissions:
+  ```bash
+  sudo chown www-data:www-data /var/www/nextcloud/data/nextcloud.log
+  sudo chmod 644 /var/www/nextcloud/data/nextcloud.log
+  ```
+
+#### 41. Missing Database Constraints
+- **Problem**: Missing database constraints causing data integrity issues.
+- **Solution**: Ensure all required database constraints are created. Check migration scripts for any missing constraints.
+
+#### 42. Incorrect Server IP
+- **Problem**: Incorrect server IP causing connection issues.
+- **Solution**: Verify server IP settings in configuration files and ensure they match the actual server IP.
+
+#### 43. Missing Database Views
+- **Problem**: Missing database views causing query failures.
+- **Solution**: Ensure all required database views are created. Check migration scripts for any missing views.
+
+#### 44. Incorrect File Permissions for Cache
+- **Problem**: Incorrect file permissions for cache causing cache write failures.
+- **Solution**: Ensure cache directories have the correct permissions:
+  ```bash
+  sudo chown -R www-data:www-data /var/www/nextcloud/data/cache
+  sudo chmod -R 755 /var/www/nextcloud/data/cache
+  ```
+
+#### 45. Missing Database Functions
+- **Problem**: Missing database functions causing query failures.
+- **Solution**: Ensure all required database functions are created. Check migration scripts for any missing functions.
+
+#### 46. Incorrect Server Hostname
+- **Problem**: Incorrect server hostname causing connection issues.
+- **Solution**: Verify server hostname settings in configuration files and ensure they match the actual server hostname.
+
+#### 47. Missing Database Procedures
+- **Problem**: Missing database procedures causing query failures.
+- **Solution**: Ensure all required database procedures are created. Check migration scripts for any missing procedures.
+
+#### 48. Incorrect File Permissions for Config
+- **Problem**: Incorrect file permissions for config causing config read failures.
+- **Solution**: Ensure config files have the correct permissions:
+  ```bash
+  sudo chown www-data:www-data /var/www/nextcloud/config/config.php
+  sudo chmod 644 /var/www/nextcloud/config/config.php
+  ```
+
+#### 49. Missing Database Sequences
+- **Problem**: Missing database sequences causing ID generation failures.
+- **Solution**: Ensure all required database sequences are created. Check migration scripts for any missing sequences.
+
+#### 50. Incorrect Server Domain
+- **Problem**: Incorrect server domain causing connection issues.
+- **Solution**: Verify server domain settings in configuration files and ensure they match the actual server domain.
 
 ### Common Installation Problems
 
