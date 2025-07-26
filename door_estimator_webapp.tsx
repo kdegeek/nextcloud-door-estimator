@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator, Plus, Minus, Save, FileText, Settings, Database, Moon, Sun, Upload, Download, Edit3 } from 'lucide-react';
 import { lookupPrice, calculateSectionTotal, calculateGrandTotal } from './utils/priceUtils';
-import { handleImport, handleExport, toggleDarkMode } from './utils/domUtils';
+import { handleImport, handleExport } from './utils/domUtils';
 
 const DoorEstimatorApp = () => {
   const [activeTab, setActiveTab] = useState('estimator');
@@ -455,7 +455,7 @@ const DoorEstimatorApp = () => {
             Cancel
           </button>
           <button
-            onClick={() =&gt; handleImport(importData, setPricingData, setMarkups, setShowImportDialog)}
+            onClick={() => handleImport(importData, setPricingData, setMarkups, setShowImportDialog)}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             Import
@@ -540,13 +540,6 @@ const DoorEstimatorApp = () => {
               <h1 className={`text-xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>Door Estimator</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => toggleDarkMode(darkMode, setDarkMode)}
-                className={`p-2 rounded-md ${darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} transition-colors`}
-                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
               <button
                 onClick={() => setActiveTab('estimator')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${

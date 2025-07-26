@@ -30,8 +30,3 @@ export const handleExport = (pricingData: any, markups: any, setShowExportDialog
   URL.revokeObjectURL(url);
   setShowExportDialog(false);
 };
-
-export const toggleDarkMode = (darkMode: boolean, setDarkMode: Function) => {
-  setDarkMode(!darkMode);
-  document.documentElement.classList.toggle('dark', !darkMode);
-};
