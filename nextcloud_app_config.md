@@ -21,7 +21,7 @@ A modern door and hardware estimating application for NextCloud that replaces yo
 - NextCloud 25+ 
 - PHP 8.0+
 - MySQL/PostgreSQL database
-- Composer (for dependencies)
+- All PHP dependencies are bundled in the `vendor/` directory. Composer is only required for developers who wish to update dependencies.
 
 ### App Structure
 
@@ -142,9 +142,8 @@ return [
 cd /var/www/nextcloud/apps/
 git clone https://github.com/yourcompany/door-estimator.git
 
-# Install PHP dependencies
-cd door-estimator
-composer install --no-dev --optimize-autoloader
+# All required PHP dependencies are already bundled in the vendor/ directory.
+# Composer is only needed by developers who wish to update dependencies.
 
 # Set proper permissions
 chown -R www-data:www-data .
@@ -313,7 +312,7 @@ All endpoints are documented and can be tested:
 Common issues and solutions:
 
 1. **Pricing lookups return 0**: Check category names match exactly
-2. **PDF generation fails**: Verify TCPDF installation and file permissions
+2. **PDF generation fails**: All advanced PDF features are always available (TCPDF and other dependencies are bundled). If you encounter issues, check file permissions.
 3. **Import errors**: Validate CSV format and encoding (UTF-8)
 
 ## Migration Benefits

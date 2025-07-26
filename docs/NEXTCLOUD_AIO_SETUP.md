@@ -53,11 +53,13 @@ docker ps | grep nextcloud
 The AIO installer automatically:
 
 1. **🔍 Detects AIO Container**: Finds your NextCloud AIO container
-2. **📦 Installs Dependencies**: Adds git to container if needed
+2. **📦 Installs Dependencies**: Adds git to container if needed (all PHP dependencies are already bundled in `vendor/`)
 3. **📥 Downloads App**: Clones from GitHub directly into container
 4. **🔒 Sets Permissions**: Configures proper file permissions
 5. **🔌 Enables App**: Activates the Door Estimator in NextCloud
 6. **📊 Imports Data**: Guides through pricing data setup
+
+> **Note:** All required PHP dependencies are included. Composer is only needed by developers who wish to update dependencies. Advanced PDF features are always available.
 
 ## 🛠️ Container-Specific Features
 

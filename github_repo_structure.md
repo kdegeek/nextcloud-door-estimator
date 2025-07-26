@@ -528,7 +528,7 @@ function importCsvFile($file, $category) {
 - NextCloud 25+
 - PHP 8.0+
 - MySQL/PostgreSQL
-- Composer
+- All PHP dependencies are bundled in the `vendor/` directory. Composer is only required for developers who wish to update dependencies.
 
 ## Step-by-Step Installation
 
@@ -540,8 +540,8 @@ function importCsvFile($file, $category) {
 
 2. **Install dependencies**
    ```bash
-   cd door_estimator
-   composer install --no-dev --optimize-autoloader
+   # All required PHP dependencies are already bundled in the vendor/ directory.
+   # Composer is only needed by developers who wish to update dependencies.
    ```
 
 3. **Set permissions**

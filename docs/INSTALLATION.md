@@ -75,25 +75,18 @@ sudo chmod +x /var/www/nextcloud/apps/door_estimator/scripts/*.py
 sudo chmod +x /var/www/nextcloud/apps/door_estimator/scripts/*.sh
 ```
 
-#### Step 4: Install Dependencies (Optional)
+#### Step 4: PHP Dependencies
 
-```bash
-cd /var/www/nextcloud/apps/door_estimator
+All required PHP dependencies are already bundled in the `vendor/` directory. No Composer installation is required for end-users.
 
-# Install PHP dependencies if composer is available
-if command -v composer &> /dev/null; then
-    sudo -u www-data composer install --no-dev --optimize-autoloader
-    echo "✅ PHP dependencies installed"
-else
-    echo "⚠️  Composer not available - app will work with basic functionality"
-fi
+- Composer is only needed by developers who wish to update or add PHP dependencies.
+- Advanced PDF features are always available.
 
 # Install Python dependencies for data extraction (if needed)
 if command -v pip3 &> /dev/null; then
     pip3 install pandas openpyxl
     echo "✅ Python dependencies installed"
 fi
-```
 
 #### Step 5: Enable the Application
 
@@ -158,12 +151,11 @@ chown -R $WEB_USER:$WEB_USER "$APP_DIR"
 find "$APP_DIR" -type d -exec chmod 755 {} \;
 find "$APP_DIR" -type f -exec chmod 644 {} \;
 
-# Install dependencies
-echo "📦 Installing dependencies..."
+# PHP dependencies
+echo "📦 Verifying PHP dependencies..."
 cd "$APP_DIR"
-if command -v composer &> /dev/null; then
-    sudo -u $WEB_USER composer install --no-dev --optimize-autoloader
-fi
+# All required PHP dependencies are already bundled in the vendor/ directory.
+# Composer is only needed by developers who wish to update dependencies.
 
 # Enable app
 echo "🔌 Enabling application..."
@@ -342,10 +334,7 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 
 #### 10. Missing Dependencies
 - **Problem**: Missing PHP or JavaScript dependencies.
-- **Solution**: Ensure all required dependencies are installed. For PHP:
-  ```bash
-  sudo -u www-data composer install --no-dev --optimize-autoloader
-  ```
+- **Solution**: All required PHP dependencies are already included in the `vendor/` directory. If you are a developer and need to update dependencies, use Composer. For end-users, no Composer installation is required.
   For JavaScript, ensure all npm packages are installed:
   ```bash
   npm install
@@ -410,10 +399,7 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 
 #### 21. Missing Composer Packages
 - **Problem**: Missing PHP packages causing app to fail.
-- **Solution**: Ensure all required PHP packages are installed:
-  ```bash
-  sudo -u www-data composer install --no-dev --optimize-autoloader
-  ```
+- **Solution**: All required PHP packages are already included in the `vendor/` directory. Composer is only needed by developers who wish to update dependencies.
 
 #### 22. Incorrect File Paths
 - **Problem**: Incorrect file paths causing file not found errors.

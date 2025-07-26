@@ -49,13 +49,6 @@ if ! command -v git >/dev/null 2>&1; then
     exit 1
 fi
 
-# Check if composer is available
-if ! command -v composer >/dev/null 2>&1; then
-    print_error "Composer is required but not installed"
-    print_status "Install composer first: apt-get install composer"
-    exit 1
-fi
-
 # Check NextCloud installation
 if [ ! -f "$NEXTCLOUD_ROOT/occ" ]; then
     print_error "NextCloud not found at $NEXTCLOUD_ROOT"
@@ -93,11 +86,9 @@ else
     exit 1
 fi
 
-# Install PHP dependencies
-print_status "Installing PHP dependencies with Composer..."
-cd "$APP_DIR"
-sudo -u $WEB_USER composer install --no-dev --optimize-autoloader --no-interaction
-print_success "PHP dependencies installed"
+# PHP dependencies are already bundled in vendor/
+print_status "All PHP dependencies are already bundled in the vendor/ directory."
+print_status "Advanced PDF features are always available—no additional setup required."
 
 # Set permissions
 print_status "Setting file permissions..."

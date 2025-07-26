@@ -213,17 +213,8 @@ set_permissions() {
 
 # Function to install dependencies
 install_dependencies() {
-    print_status "Installing dependencies..."
-    
-    # Check if composer is available and install PHP dependencies
-    if docker exec "$AIO_CONTAINER_NAME" which composer >/dev/null 2>&1; then
-        print_status "Installing PHP dependencies with Composer..."
-        docker exec -u www-data "$AIO_CONTAINER_NAME" bash -c "cd /var/www/html/apps/$APP_NAME && composer install --no-dev --optimize-autoloader --no-interaction" 2>/dev/null || {
-            print_warning "Some PHP dependencies may not have installed"
-        }
-    else
-        print_warning "Composer not available - app will work with basic functionality"
-    fi
+    print_status "All PHP dependencies are already bundled in the vendor/ directory."
+    print_status "Advanced PDF features are always available—no additional setup required."
     
     # Install Python dependencies if available
     if docker exec "$AIO_CONTAINER_NAME" which python3 >/dev/null 2>&1 && docker exec "$AIO_CONTAINER_NAME" which pip3 >/dev/null 2>&1; then
