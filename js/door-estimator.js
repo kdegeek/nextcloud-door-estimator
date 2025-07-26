@@ -123,7 +123,6 @@
         },
 
         enableDarkMode() {
-          toggleDarkMode(true, (mode) => this.data.darkMode = mode);
         },
 
         // Higher-order function for event binding
