@@ -157,13 +157,24 @@ backup_existing() {
 # Function to install the application
 install_app() {
     print_status "Installing Door Estimator application..."
-    
+
     # Ensure git is available in container
     ensure_git_in_container
-    
+
+    # Preserve pricing JSON data if present
+    PRESERVED_JSON_PATH="/tmp/extracted_pricing_data_$(date +%Y%m%d_%H%M%S).json"
+    if docker exec "$AIO_CONTAINER_NAME" test -f "/var/www/html/apps/$APP_NAME/scripts/extracted_pricing_data.json"; then
+        print_status "Preserving pricing data from previous installation..."
+        docker exec "$AIO_CONTAINER_NAME" cp "/var/www/html/apps/$APP_NAME/scripts/extracted_pricing_data.json" "$PRESERVED_JSON_PATH" && print_success "Pricing data preserved at $PRESERVED_JSON_PATH" || print_error "Failed to preserve pricing data"
+    else
+        print_status "No pricing data found to preserve."
+        PRESERVED_JSON_PATH=""
+    fi
+
     # Remove existing installation
-    docker exec "$AIO_CONTAINER_NAME" rm -rf "/var/www/html/apps/$APP_NAME" 2>/dev/null || true
-    
+    print_status "Removing old installation in container..."
+    docker exec "$AIO_CONTAINER_NAME" rm -rf "/var/www/html/apps/$APP_NAME" 2>/dev/null && print_success "Old installation removed." || print_status "No previous installation to remove."
+
     # Clone the repository directly in container
     print_status "Cloning repository in container..."
     if docker exec "$AIO_CONTAINER_NAME" git clone "$GITHUB_REPO" "/tmp/$APP_NAME-temp"; then
@@ -172,13 +183,23 @@ install_app() {
         print_error "Failed to clone repository"
         exit 1
     fi
-    
+
     # Move to apps directory
     docker exec "$AIO_CONTAINER_NAME" mv "/tmp/$APP_NAME-temp" "/var/www/html/apps/$APP_NAME" || {
         print_error "Failed to move app to apps directory"
         exit 1
     }
-    
+
+    # Restore preserved pricing JSON data if it exists
+    if [ -n "$PRESERVED_JSON_PATH" ] && docker exec "$AIO_CONTAINER_NAME" test -f "$PRESERVED_JSON_PATH"; then
+        print_status "Restoring preserved pricing data to /var/www/html/apps/$APP_NAME/scripts/extracted_pricing_data.json"
+        docker exec "$AIO_CONTAINER_NAME" mkdir -p "/var/www/html/apps/$APP_NAME/scripts"
+        docker exec "$AIO_CONTAINER_NAME" cp "$PRESERVED_JSON_PATH" "/var/www/html/apps/$APP_NAME/scripts/extracted_pricing_data.json" && print_success "Pricing data restored." || print_error "Failed to restore pricing data."
+        docker exec "$AIO_CONTAINER_NAME" rm -f "$PRESERVED_JSON_PATH"
+    else
+        print_status "No preserved pricing data to restore."
+    fi
+
     print_success "Application files installed"
 }
 

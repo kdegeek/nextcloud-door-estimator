@@ -475,7 +475,8 @@ class EstimatorService {
         $allowedTypes = [
             'text/csv',
             'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/json'
         ];
         $maxSize = 5 * 1024 * 1024; // 5MB
 
@@ -493,13 +494,132 @@ class EstimatorService {
         if (!is_readable($tmpName)) {
             $errors[] = 'Uploaded file is not readable';
         }
-        // Optionally, check file content (e.g., first bytes for CSV/XLSX signature)
         if (!empty($errors)) {
             return ['imported' => 0, 'errors' => $errors];
         }
 
-        // Implementation for bulk import from uploaded CSV/Excel files
-        // This would parse the uploaded file and import pricing data
-        return ['imported' => 0, 'errors' => ['Not implemented yet']];
+        $imported = 0;
+        $rowErrors = [];
+
+        // Helper: Validate and map a row to DB fields
+        $validateRow = function($row, $rowNum) use (&$rowErrors) {
+            $required = ['item', 'price', 'category'];
+            foreach ($required as $field) {
+                if (!isset($row[$field]) || (is_string($row[$field]) && trim($row[$field]) === '') || ($field === 'price' && !is_numeric($row[$field]))) {
+                    $rowErrors[] = "Row $rowNum: Missing or invalid '$field'";
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        // Helper: Insert or update a row, handle duplicates/DB errors
+        $processRow = function($row, $rowNum) use (&$imported, &$rowErrors, $validateRow) {
+            if (!$validateRow($row, $rowNum)) {
+                return;
+            }
+            try {
+                $result = $this->updatePricingItem($row);
+                if ($result) {
+                    $imported++;
+                } else {
+                    $rowErrors[] = "Row $rowNum: Duplicate or DB constraint violation";
+                }
+            } catch (\Exception $e) {
+                $rowErrors[] = "Row $rowNum: " . $e->getMessage();
+            }
+        };
+
+        // JSON import
+        if ($fileType === 'application/json') {
+            $jsonContent = file_get_contents($tmpName);
+            $data = json_decode($jsonContent, true);
+
+            // Validate and process 'markups' key
+            if (!isset($data['markups']) || !is_array($data['markups'])) {
+                throw new \InvalidArgumentException("The 'markups' key is required and must be an array in the imported JSON.");
+            }
+
+            // Optionally, further process or normalize 'markups' here if needed
+            // For example, ensure each markup entry has required fields
+            foreach ($data['markups'] as $markup) {
+                if (!isset($markup['type']) || !isset($markup['value'])) {
+                    throw new \InvalidArgumentException("Each markup must have 'type' and 'value' fields.");
+                }
+                // Additional normalization or transformation can be done here
+            }
+            $data = json_decode($jsonContent, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return ['imported' => 0, 'errors' => ['Invalid JSON file']];
+            }
+            if (!isset($data['pricingData']) || !is_array($data['pricingData'])) {
+                return ['imported' => 0, 'errors' => ['JSON must contain pricingData (array)']];
+            }
+            foreach ($data['pricingData'] as $i => $row) {
+                $rowNum = $i + 1;
+                $processRow($row, $rowNum);
+            }
+            return ['imported' => $imported, 'errors' => $rowErrors];
+        }
+
+        // CSV/Excel import using PhpSpreadsheet
+        try {
+            $spreadsheet = null;
+            if ($fileType === 'text/csv') {
+                $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
+                $reader->setDelimiter(',');
+                $spreadsheet = $reader->load($tmpName);
+            } elseif ($fileType === 'application/vnd.ms-excel' || $fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+                $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
+                $spreadsheet = $reader->load($tmpName);
+            } else {
+                return ['imported' => 0, 'errors' => ['Unsupported file type']];
+            }
+
+            $sheet = $spreadsheet->getActiveSheet();
+            $header = [];
+            foreach ($sheet->getRowIterator() as $rowIndex => $row) {
+                $cellIterator = $row->getCellIterator();
+                $cellIterator->setIterateOnlyExistingCells(false);
+                $rowData = [];
+                foreach ($cellIterator as $cell) {
+                    $rowData[] = $cell->getValue();
+                }
+                if ($rowIndex === 1) {
+                    // First row is header
+                    $header = array_map(function($h) {
+                        return strtolower(trim($h));
+                    }, $rowData);
+                    continue;
+                }
+                if (empty(array_filter($rowData))) {
+                    continue; // skip empty rows
+                }
+                $assoc = [];
+                foreach ($header as $i => $col) {
+                    $assoc[$col] = $rowData[$i] ?? null;
+                }
+                $processRow($assoc, $rowIndex);
+            }
+        } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
+            return ['imported' => 0, 'errors' => ['Spreadsheet parse error: ' . $e->getMessage()]];
+        } catch (\Exception $e) {
+            return ['imported' => 0, 'errors' => ['Import error: ' . $e->getMessage()]];
+        }
+
+        return ['imported' => $imported, 'errors' => $rowErrors];
+    }
+    /**
+     * Check if any pricing data exists in the database.
+     * @return bool True if at least one pricing item exists, false otherwise.
+     */
+    public function isPricingDataPresent(): bool {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('id')
+            ->from('door_estimator_pricing')
+            ->setMaxResults(1);
+        $result = $qb->execute();
+        $row = $result->fetch();
+        return $row !== false;
     }
 }

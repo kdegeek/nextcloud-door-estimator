@@ -1,10 +1,45 @@
-# vendor/
+# Dependency directories
 node_modules/
-*.log
-.env
+vendor/
+
+# Build artifacts and output
+dist/
+build/
+out/
+coverage/
+js/*.js
+js/*.js.map
+js/*.d.ts
+
+# TypeScript build artifacts (keep .ts and .tsx sources)
+js/**/*.js
+dist/**/*.js
+js/**/*.js.map
+dist/**/*.js.map
+js/**/*.d.ts
+dist/**/*.d.ts
+
+# Development/IDE config
+.vscode/
+.idea/
+*.sublime*
+*.code-workspace
+
+# OS and editor junk
 .DS_Store
 Thumbs.db
+*.swp
+*~
 *.tmp
+
+# Cache and temp
+.cache/
+cache/
+tmp/
+*.log
+
+# Environment and secrets
+.env
 
 # Pricing data (keep private)
 scripts/extracted_pricing_data.json

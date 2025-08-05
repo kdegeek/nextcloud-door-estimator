@@ -57,6 +57,77 @@ door-estimator/
 └── README.md                   # This file
 ```
 
+---
+
+## 🖥️ Frontend Build & Development
+
+The Door Estimator frontend is built with **React** and **TypeScript**, using Nextcloud's official webpack config.
+
+### Setup & Build
+
+```bash
+# 1. Install Node.js (v16+ required)
+# 2. Install dependencies
+npm install
+
+# 3. Build for production
+npm run build
+
+# 4. For development (with hot reload)
+npm run build:dev
+
+# 5. Start local dev server (if supported)
+npm start
+```
+
+- **TypeScript**: All source code is in TypeScript (`.tsx`, `.ts`). Compilation is handled by webpack and `ts-loader`.
+- **Scripts**: See `package.json` for all available scripts.
+- **Output**: Compiled JS is output to `js/door-estimator.js` for Nextcloud to serve.
+
+### Development Workflow
+
+- Edit React/TypeScript code in `src/` or `js/`.
+- Use `npm run build:dev` for fast rebuilds and source maps.
+- Use `npm test` to run Jest unit tests.
+- For Nextcloud integration, ensure the app is enabled and the built JS is up to date.
+
+See [`docs/INSTALLATION.md`](docs/INSTALLATION.md:1) for full environment setup.
+
+---
+
+## 🐘 Backend Setup & Database
+
+The backend is a standard Nextcloud PHP app.
+
+### PHP Requirements
+
+- PHP 8.0+ with extensions: `pdo`, `json`, `curl`, `mbstring`, `xml`
+- All required PHP dependencies are bundled in `vendor/` (no Composer needed for end-users).
+
+### Database Migrations
+
+- Database schema is managed via migration scripts in `lib/Migration/`.
+- Migrations are applied automatically on app enable, or can be run manually:
+  ```bash
+  sudo -u www-data php /var/www/nextcloud/occ migrations:execute door_estimator 001000
+  ```
+
+### Pricing Data Import
+
+- Place your extracted pricing data as `scripts/extracted_pricing_data.json`.
+- Import with:
+  ```bash
+  sudo -u www-data php /var/www/nextcloud/occ door-estimator:import-pricing
+  ```
+- See [`docs/PRICING_DATA_SETUP.md`](docs/PRICING_DATA_SETUP.md:1) for details.
+
+### Automated Setup
+
+- Use [`scripts/setup.sh`](scripts/setup.sh:1) for a fully automated install, including permissions, dependencies, and data import.
+- See [`docs/INSTALLATION.md`](docs/INSTALLATION.md:1) for advanced/manual instructions.
+
+---
+
 ## 🛠️ Installation Guide
 
 ### Quick Installation
@@ -236,32 +307,59 @@ The app provides a comprehensive REST API:
 
 ### Common Issues and Solutions
 
-**1. App Won't Enable**
-```bash
-# Check NextCloud logs
-tail -f /var/www/nextcloud/data/nextcloud.log
+**Frontend/Build Issues**
 
-# Verify file permissions
-ls -la /var/www/nextcloud/apps/door_estimator/
-```
+- **npm install fails**:
+  - Ensure Node.js v16+ is installed (`node -v`).
+  - Delete `node_modules/` and `package-lock.json`, then run `npm install` again.
+  - If you see errors about missing `webpack` or `ts-loader`, run `npm install` to restore all dependencies.
 
-**2. Pricing Data Not Loading**
-```bash
-# Re-import pricing data
-sudo -u www-data php /var/www/nextcloud/occ door-estimator:import-pricing
+- **TypeScript compilation errors**:
+  - Run `npm run build:dev` to see detailed error output.
+  - Check `tsconfig.json` for correct settings.
 
-# Check database tables
-sudo -u www-data php /var/www/nextcloud/occ db:show-tables | grep door_estimator
-```
+- **Webpack build fails**:
+  - Ensure all devDependencies are installed (`npm install`).
+  - Check for syntax errors in your TypeScript/React code.
 
-**3. JavaScript Errors**
-- Check browser console for errors
-- Verify NextCloud version compatibility
-- Clear browser cache
+- **Hot reload not working**:
+  - Use `npm start` or `npm run build:dev` for development.
+  - Ensure your browser is not caching old JS.
 
-**4. PDF Generation Issues**
-- HTML-based PDFs and advanced PDF features are always available (all dependencies are bundled in `vendor/`)
-- Check file permissions on the quotes directory
+**Backend/PHP Issues**
+
+- **App won't enable**:
+  - Check Nextcloud logs: `tail -f /var/www/nextcloud/data/nextcloud.log`
+  - Verify file permissions: `ls -la /var/www/nextcloud/apps/door_estimator/`
+  - Ensure all required PHP extensions are installed.
+
+- **Database migration fails**:
+  - Check user permissions and run migrations manually if needed.
+  - See [`docs/INSTALLATION.md`](docs/INSTALLATION.md:1) for migration troubleshooting.
+
+- **Pricing data not loading**:
+  - Ensure `scripts/extracted_pricing_data.json` exists and is valid JSON.
+  - Re-import: `sudo -u www-data php /var/www/nextcloud/occ door-estimator:import-pricing`
+  - Check database tables: `sudo -u www-data php /var/www/nextcloud/occ db:show-tables | grep door_estimator`
+
+- **Permission errors**:
+  - Set correct ownership: `sudo chown -R www-data:www-data /var/www/nextcloud/apps/door_estimator`
+  - Set permissions: `sudo chmod -R 755 /var/www/nextcloud/apps/door_estimator`
+
+**General**
+
+- **JavaScript errors**:
+  - Check browser console.
+  - Verify Nextcloud version compatibility.
+  - Clear browser cache.
+
+- **PDF generation issues**:
+  - All dependencies are bundled; check file permissions on the quotes directory.
+
+- **Composer issues (for developers only)**:
+  - Run `composer install` in the app root if you need to update PHP dependencies.
+
+**See [`docs/INSTALLATION.md`](docs/INSTALLATION.md:1) for a full troubleshooting matrix.**
 
 ### Database Maintenance
 
@@ -275,6 +373,52 @@ mysqldump nextcloud_db door_estimator_pricing > pricing_backup.sql
 # Optimize database
 sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 ```
+## 🤝 Contributor Setup
+
+We welcome contributions! To set up a development environment for either the frontend or backend:
+
+### Frontend (React/TypeScript)
+
+1. **Install Node.js v16+**
+   Download from [nodejs.org](https://nodejs.org/).
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Run tests**
+   ```bash
+   npm test
+   ```
+
+4. **Build and develop**
+   - Production build: `npm run build`
+   - Development build: `npm run build:dev`
+   - Start dev server: `npm start` (if supported)
+
+5. **Code style**
+   - Use TypeScript and React best practices.
+   - Follow the structure in `src/` and `js/`.
+
+### Backend (PHP/Nextcloud)
+
+1. **Install PHP 8.0+** with required extensions.
+2. **Install Composer** (for development only):
+   ```bash
+   composer install
+   ```
+3. **Run/modify migrations** in `lib/Migration/`.
+4. **Run backend tests** (if available) using PHPUnit.
+5. **Import pricing data** as described above.
+
+### General
+
+- See [`docs/INSTALLATION.md`](docs/INSTALLATION.md:1) for full setup and environment details.
+- Use [`scripts/setup.sh`](scripts/setup.sh:1) to automate most setup steps.
+- For detailed app structure, see the "Project Structure" section above.
+
+---
 
 ## 🔄 Updates and Maintenance
 
@@ -295,10 +439,13 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 
 ### Getting Help
 
-1. **NextCloud Logs**: Check `/var/www/nextcloud/data/nextcloud.log`
-2. **Browser Console**: Check for JavaScript errors
-3. **Database Logs**: Check MySQL/PostgreSQL logs for database issues
-4. **File Permissions**: Verify all files are accessible by the web server
+- See [`docs/INSTALLATION.md`](docs/INSTALLATION.md:1) for a comprehensive installation and troubleshooting guide.
+- For setup automation, see [`scripts/setup.sh`](scripts/setup.sh:1).
+- For advanced issues, check:
+  1. **NextCloud Logs**: `/var/www/nextcloud/data/nextcloud.log`
+  2. **Browser Console**: JavaScript errors
+  3. **Database Logs**: MySQL/PostgreSQL logs
+  4. **File Permissions**: All files must be accessible by the web server
 
 ### Reporting Issues
 
@@ -308,6 +455,7 @@ When reporting issues, please include:
 - Browser and version
 - Error messages from logs
 - Steps to reproduce the issue
+
 
 ## 🎉 Success Metrics
 

@@ -133,7 +133,7 @@ class EstimatorController extends Controller {
                 return new JSONResponse(['error' => 'Quote not found'], 404);
             }
         } catch (\Exception $e) {
-            $this->logger->error('saveQuote: ' . $e->getMessage(), ['exception' => $e]);
+            $this->logger->error('getQuote: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
@@ -146,7 +146,7 @@ class EstimatorController extends Controller {
             $quotes = $this->estimatorService->getUserQuotes();
             return new JSONResponse($quotes);
         } catch (\Exception $e) {
-            $this->logger->error('getQuote: ' . $e->getMessage(), ['exception' => $e]);
+            $this->logger->error('getUserQuotes: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
@@ -173,7 +173,7 @@ class EstimatorController extends Controller {
     }
     
     /**
-     * @NoAdminRequired
+     * @AdminRequired
      * @CsrfRequired
      */
     public function importPricingData(): JSONResponse {
@@ -188,6 +188,7 @@ class EstimatorController extends Controller {
             }
             // File type/size/content validation
             $allowedTypes = [
+                'application/json',
                 'text/csv',
                 'application/vnd.ms-excel',
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -199,7 +200,7 @@ class EstimatorController extends Controller {
             $tmpName = is_array($uploadedFile) ? ($uploadedFile['tmp_name'] ?? '') : ($uploadedFile->getTmpName() ?? '');
 
             if (!in_array($fileType, $allowedTypes, true)) {
-                return new JSONResponse(['error' => 'Unsupported file type'], 400);
+                return new JSONResponse(['error' => 'Unsupported file type. Only JSON, CSV, and Excel files are allowed.'], 400);
             }
             if ($fileSize <= 0 || $fileSize > $maxSize) {
                 return new JSONResponse(['error' => 'File size exceeds limit or is empty'], 400);
@@ -207,7 +208,20 @@ class EstimatorController extends Controller {
             if (!is_readable($tmpName)) {
                 return new JSONResponse(['error' => 'Uploaded file is not readable'], 400);
             }
-            // Optionally, check file content (e.g., first bytes for CSV/XLSX signature)
+
+            // If JSON, validate structure before import
+            if ($fileType === 'application/json') {
+                $jsonContent = file_get_contents($tmpName);
+                $data = json_decode($jsonContent, true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    return new JSONResponse(['error' => 'Invalid JSON file.'], 400);
+                }
+                // Basic structure check: must have pricingData and markups keys
+                if (!isset($data['pricingData']) || !isset($data['markups'])) {
+                    return new JSONResponse(['error' => 'JSON must contain pricingData and markups keys.'], 400);
+                }
+            }
+
             $result = $this->estimatorService->importPricingFromUpload($uploadedFile);
             return new JSONResponse([
                 'success' => true,
@@ -229,7 +243,7 @@ class EstimatorController extends Controller {
             $result = $this->estimatorService->deleteQuote($quoteId);
             return new JSONResponse(['success' => $result]);
         } catch (\Exception $e) {
-            $this->logger->error('importPricingData: ' . $e->getMessage(), ['exception' => $e]);
+            $this->logger->error('deleteQuote: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
@@ -296,6 +310,18 @@ class EstimatorController extends Controller {
             return new JSONResponse(['success' => $result]);
         } catch (\Exception $e) {
             $this->logger->error('updateMarkupDefaults: ' . $e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Server error'], 500);
+        }
+    }
+    /**
+     * @NoAdminRequired
+     */
+    public function getOnboardingStatus(): JSONResponse {
+        try {
+            $hasPricing = $this->estimatorService->isPricingDataPresent();
+            return new JSONResponse(['onboardingRequired' => !$hasPricing]);
+        } catch (\Exception $e) {
+            $this->logger->error('getOnboardingStatus: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }

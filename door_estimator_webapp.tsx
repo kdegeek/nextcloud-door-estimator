@@ -6,6 +6,7 @@ import { handleImport, handleExport } from './utils/domUtils';
 
 const DoorEstimatorApp = () => {
   const [activeTab, setActiveTab] = useState('estimator');
+  const [onboardingRequired, setOnboardingRequired] = useState<null | boolean>(null);
   const [darkMode, setDarkMode] = useState(false);
   const [inputError, setInputError] = useState('');
   const [userFeedback, setUserFeedback] = useState('');
@@ -525,27 +526,79 @@ const DoorEstimatorApp = () => {
   const renderImportDialog = () => showImportDialog && (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-full max-w-md mx-4`}>
-        <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>Import Data</h3>
-        <textarea
-          className={`w-full h-40 px-3 py-2 border rounded-md text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          placeholder="Paste JSON data here..."
-          value={importData}
-          onChange={(e) => setImportData(e.target.value)}
-        />
-        <div className="flex justify-end space-x-3 mt-4">
-          <button
-            onClick={() => setShowImportDialog(false)}
-            className={`px-4 py-2 ${darkMode ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'} rounded-md transition-colors`}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => handleImport(importData, setPricingData, setMarkups, setShowImportDialog)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Import
-          </button>
-        </div>
+        <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>Import Pricing Data from Nextcloud</h3>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setUserFeedback('');
+            setInputError('');
+            const fileInput = e.target.elements.namedItem('importFile');
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+              setInputError('Please select a JSON file to import.');
+              return;
+            }
+            const file = fileInput.files[0];
+            // Check MIME type and fallback to extension check
+            const isJsonMime = file.type === 'application/json';
+            const isJsonExt = file.name.toLowerCase().endsWith('.json');
+            if (!isJsonMime && !isJsonExt) {
+              setInputError('Only JSON files are supported.');
+              return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+              setInputError('File size exceeds 5MB limit.');
+              return;
+            }
+            // Upload to backend
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+              const resp = await fetch('/apps/door_estimator/api/importPricingData', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+              });
+              const result = await resp.json();
+              if (result.success) {
+                setUserFeedback('Pricing data imported successfully.');
+                setShowImportDialog(false);
+                // Optionally, refresh pricing data here
+              } else {
+                setInputError(result.error || 'Import failed.');
+              }
+            } catch (err) {
+              setInputError('Server error during import.');
+            }
+          }}
+        >
+          <input
+            type="file"
+            name="importFile"
+            accept=".json,application/json"
+            className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-100 dark:bg-gray-700 dark:border-gray-600 mb-4"
+            required
+          />
+          <div className="flex justify-end space-x-3 mt-4">
+            <button
+              type="button"
+              onClick={() => setShowImportDialog(false)}
+              className={`px-4 py-2 ${darkMode ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'} rounded-md transition-colors`}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Import
+            </button>
+          </div>
+          {inputError && (
+            <div className="mt-4 text-red-600 bg-red-100 border border-red-300 rounded p-2 text-sm">
+              {inputError}
+            </div>
+          )}
+        </form>
       </div>
     </div>
   );
@@ -662,6 +715,151 @@ const DoorEstimatorApp = () => {
       {renderImportDialog()}
       {renderExportDialog()}
       {renderProductManager()}
+    </div>
+  );
+  // On mount, check onboarding status
+  useEffect(() => {
+    fetch('/apps/door_estimator/api/onboardingStatus', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (typeof data.onboardingRequired === 'boolean') {
+          setOnboardingRequired(data.onboardingRequired);
+        } else {
+          setOnboardingRequired(false); // fallback: allow app if error
+        }
+      })
+      .catch(() => setOnboardingRequired(false));
+  }, []);
+
+  // Onboarding UI (blocking overlay)
+  const renderOnboarding = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-lg w-full shadow-lg">
+        <h2 className="text-2xl font-bold mb-4 text-center text-blue-700 dark:text-blue-200">Welcome to Door Estimator</h2>
+        <p className="mb-6 text-gray-700 dark:text-gray-200 text-center">
+          Before you can use the app, you must import your pricing data.<br />
+          Please select a JSON file from your Nextcloud storage to begin.
+        </p>
+        {/* Nextcloud file picker will be integrated here */}
+        <div className="flex justify-center">
+          <button
+            className="px-6 py-2 bg-blue-600 text-white rounded-md font-semibold shadow hover:bg-blue-700"
+            onClick={async () => {
+              setUserFeedback('');
+              setInputError('');
+              if (!window.OC || !window.OC.dialogs || !window.OC.dialogs.filepicker) {
+                setInputError('Nextcloud file picker is not available.');
+                return;
+              }
+              window.OC.dialogs.filepicker(
+                (files) => {
+                  if (!files || !files[0]) {
+                    setInputError('No file selected.');
+                    return;
+                  }
+                  const filePath = files[0];
+                  // Download the file via WebDAV
+                  fetch(`/remote.php/webdav/${encodeURIComponent(filePath)}`, {
+                    credentials: 'include'
+                  })
+                    .then(async (resp) => {
+                      if (!resp.ok) throw new Error('Failed to download file');
+                      const blob = await resp.blob();
+                      if (blob.size > 5 * 1024 * 1024) {
+                        setInputError('File size exceeds 5MB limit.');
+                        return;
+                      }
+                      // Prepare for upload
+                      const formData = new FormData();
+                      formData.append('file', blob, filePath.split('/').pop());
+                      // Upload to backend
+                      const importResp = await fetch('/apps/door_estimator/api/importPricingData', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include'
+                      });
+                      const result = await importResp.json();
+                      if (result.success) {
+                        setUserFeedback('Pricing data imported successfully.');
+                        setOnboardingRequired(false);
+                      } else {
+                        setInputError(result.error || 'Import failed.');
+                      }
+                    })
+                    .catch(() => setInputError('Failed to download or import file.'));
+                },
+                false,
+                'Select pricing data JSON file',
+                false,
+                { mimetype: 'application/json' }
+              );
+            }}
+          >
+            Select Pricing Data File (Nextcloud)
+          </button>
+        </div>
+        <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          Access to the app is blocked until pricing data is imported.
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-100'} transition-colors`}>
+      {/* Block everything with onboarding if required */}
+      {onboardingRequired === true && renderOnboarding()}
+      {/* Only render app if onboarding is not required or status is unknown */}
+      {(onboardingRequired === false || onboardingRequired === null) && (
+        <>
+          {/* Navigation */}
+          <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} shadow-sm border-b sticky top-0 z-40`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between h-16">
+                <div className="flex items-center">
+                  <Calculator className={`w-8 h-8 ${darkMode ? 'text-blue-400' : 'text-blue-600'} mr-3`} />
+                  <h1 className={`text-xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>Door Estimator</h1>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setActiveTab('estimator')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'estimator'
+                        ? (darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700')
+                        : (darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100')
+                    }`}
+                  >
+                    <Calculator className="w-4 h-4 inline mr-2" />
+                    Estimator
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('admin')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'admin'
+                        ? (darkMode ? 'bg-purple-900 text-purple-200' : 'bg-purple-100 text-purple-700')
+                        : (darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100')
+                    }`}
+                  >
+                    <Settings className="w-4 h-4 inline mr-2" />
+                    Admin
+                  </button>
+                </div>
+              </div>
+            </div>
+          </nav>
+
+          {/* Main Content */}
+          <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            {activeTab === 'estimator' && renderEstimator()}
+            {activeTab === 'admin' && renderAdmin()}
+          </main>
+          
+          {/* Dialogs */}
+          {renderImportDialog()}
+          {renderExportDialog()}
+          {renderProductManager()}
+        </>
+      )}
     </div>
   );
 };

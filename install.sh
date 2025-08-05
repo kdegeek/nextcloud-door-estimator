@@ -71,10 +71,19 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Remove any previous installation
+# Remove any previous installation, preserving pricing JSON data if present
+PRESERVED_JSON=""
 if [ -d "$APP_DIR" ]; then
-    print_warning "Existing installation found at $APP_DIR. Removing..."
-    rm -rf "$APP_DIR"
+    print_warning "Existing installation found at $APP_DIR."
+    if [ -f "$APP_DIR/scripts/extracted_pricing_data.json" ]; then
+        PRESERVED_JSON="/tmp/extracted_pricing_data_$(date +%Y%m%d_%H%M%S).json"
+        print_status "Preserving pricing data: $APP_DIR/scripts/extracted_pricing_data.json"
+        cp "$APP_DIR/scripts/extracted_pricing_data.json" "$PRESERVED_JSON" && print_success "Pricing data preserved at $PRESERVED_JSON" || print_error "Failed to preserve pricing data"
+    else
+        print_status "No pricing data found to preserve."
+    fi
+    print_status "Removing old installation at $APP_DIR..."
+    rm -rf "$APP_DIR" && print_success "Old installation removed." || print_error "Failed to remove old installation."
 fi
 
 # Clone the repository directly into the NextCloud apps directory
@@ -84,6 +93,16 @@ if git clone "$GITHUB_REPO" "$APP_DIR"; then
 else
     print_error "Failed to clone repository"
     exit 1
+fi
+
+# Restore preserved pricing JSON data if it exists
+if [ -n "$PRESERVED_JSON" ] && [ -f "$PRESERVED_JSON" ]; then
+    print_status "Restoring preserved pricing data to $APP_DIR/scripts/extracted_pricing_data.json"
+    mkdir -p "$APP_DIR/scripts"
+    cp "$PRESERVED_JSON" "$APP_DIR/scripts/extracted_pricing_data.json" && print_success "Pricing data restored." || print_error "Failed to restore pricing data."
+    rm -f "$PRESERVED_JSON"
+else
+    print_status "No preserved pricing data to restore."
 fi
 
 # PHP dependencies are already bundled in vendor/

@@ -18,5 +18,6 @@ return [
         
         // Bulk import
         ['name' => 'estimator#importPricingData', 'url' => '/api/import', 'verb' => 'POST'],
+        ['name' => 'estimator#getOnboardingStatus', 'url' => '/api/onboardingStatus', 'verb' => 'GET'],
     ]
 ];
