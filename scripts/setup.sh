@@ -12,13 +12,14 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
-NEXTCLOUD_ROOT="/var/www/nextcloud"
-APP_NAME="door_estimator"
-APP_DIR="$NEXTCLOUD_ROOT/apps/$APP_NAME"
-WEB_USER="www-data"
-GITHUB_REPO="https://github.com/kdegeek/nextcloud-door-estimator.git"
-TEMP_DIR="/tmp/door-estimator-install"
+# Configuration (allow override via env or args)
+NEXTCLOUD_ROOT="${NEXTCLOUD_ROOT:-/var/www/nextcloud}"
+APP_NAME="${APP_NAME:-door_estimator}"
+APP_DIR="${APP_DIR:-$NEXTCLOUD_ROOT/apps/$APP_NAME}"
+WEB_USER="${WEB_USER:-www-data}"
+GITHUB_REPO="${GITHUB_REPO:-https://github.com/kdegeek/nextcloud-door-estimator.git}"
+TEMP_DIR="${TEMP_DIR:-/tmp/door-estimator-install}"
+LOG_FILE="${LOG_FILE:-/var/log/door_estimator_setup.log}"
 
 # Function to print colored output
 print_status() {
@@ -35,6 +36,7 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG_FILE"
 }
 
 # Function to check if command exists
@@ -340,8 +342,14 @@ case "${1:-}" in
         echo "Usage: $0 [options]"
         echo ""
         echo "Options:"
-        echo "  --help, -h     Show this help message"
-        echo "  --check        Check system requirements only"
+        echo "  --help, -h           Show this help message"
+        echo "  --check              Check system requirements only"
+        echo "  --root PATH          Override NEXTCLOUD_ROOT"
+        echo "  --app-name NAME      Override APP_NAME"
+        echo "  --app-dir DIR        Override APP_DIR"
+        echo ""
+        echo "Environment variables can also be used to override:"
+        echo "  NEXTCLOUD_ROOT, APP_NAME, APP_DIR, WEB_USER, GITHUB_REPO, TEMP_DIR, LOG_FILE"
         echo ""
         echo "This script will:"
         echo "  1. Verify system requirements"
@@ -359,6 +367,24 @@ case "${1:-}" in
         check_requirements
         print_success "All requirements met!"
         exit 0
+        ;;
+    --root)
+        shift
+        export NEXTCLOUD_ROOT="$1"
+        shift
+        main
+        ;;
+    --app-name)
+        shift
+        export APP_NAME="$1"
+        shift
+        main
+        ;;
+    --app-dir)
+        shift
+        export APP_DIR="$1"
+        shift
+        main
         ;;
     *)
         main

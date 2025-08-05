@@ -8,34 +8,59 @@ use OCP\IConfig;
 use OCP\Files\NotFoundException;
 use OCA\DoorEstimator\Service\EstimatorUtils;
 use OCA\DoorEstimator\Repository\EstimatorRepository;
+use OCP\IDBConnection;
 
+/**
+ * Service class for business logic related to pricing, quotes, and PDF generation.
+ * Handles all database and file operations for the Door Estimator app.
+ */
 class EstimatorService {
     
     private $userSession;
     private $appData;
     private $config;
     private $repository;
+    private $db;
 
     public function __construct(
         EstimatorRepository $repository,
         IUserSession $userSession,
         IAppData $appData,
-        IConfig $config
+        IConfig $config,
+        IDBConnection $db
     ) {
         $this->repository = $repository;
         $this->userSession = $userSession;
         $this->appData = $appData;
         $this->config = $config;
+        $this->db = $db;
     }
     
+    /**
+     * Get all pricing data from the repository.
+     * @return array List of all pricing items.
+     */
     public function getAllPricingData(): array {
         return $this->repository->getAllPricingData();
     }
     
+    /**
+     * Get pricing data for a specific category.
+     * @param string $category Category name (e.g., 'doors', 'frames').
+     * @return array List of pricing items in the category.
+     */
     public function getPricingByCategory(string $category): array {
         return $this->repository->getPricingByCategory($category);
     }
     
+    /**
+     * Lookup the price for a given item in a category, optionally filtered by frame type.
+     * Returns 0.0 if not found.
+     * @param string $category
+     * @param string $item
+     * @param string|null $frameType
+     * @return float
+     */
     public function lookupPrice(string $category, string $item, ?string $frameType = null): float {
         $qb = $this->db->getQueryBuilder();
         
@@ -54,7 +79,28 @@ class EstimatorService {
         return $row ? (float)$row['price'] : 0.0;
     }
     
+    /**
+     * Update or insert a pricing item.
+     * @param array $data Must include 'item', 'price', and 'category'.
+     *        - 'item': string, required
+     *        - 'price': float, required
+     *        - 'category': string, required
+     *        - 'stock_status': string, optional, default 'stock'
+     *        - 'description': string, optional
+     *        - 'id': int, optional (if present, updates existing)
+     * @return bool True if operation affected at least one row.
+     * @throws \InvalidArgumentException if required fields are missing or invalid.
+     */
     public function updatePricingItem(array $data): bool {
+        // Service-level input validation (defense-in-depth)
+        if (
+            !isset($data['item']) || !is_string($data['item']) || trim($data['item']) === '' ||
+            !isset($data['price']) || !is_numeric($data['price']) ||
+            !isset($data['category']) || !is_string($data['category']) || trim($data['category']) === ''
+        ) {
+            throw new \InvalidArgumentException('Invalid input data');
+        }
+
         $qb = $this->db->getQueryBuilder();
         
         if (isset($data['id']) && $data['id']) {
@@ -86,6 +132,14 @@ class EstimatorService {
         return $affected > 0;
     }
     
+    /**
+     * Save a new quote for the current user.
+     * @param array $quoteData Array of quote line items (see OpenAPI spec for structure).
+     * @param array $markups Associative array of markups by section (e.g., ['doors' => 10]).
+     * @param string|null $quoteName Optional quote name.
+     * @param string|null $customerInfo Optional customer info (JSON-serializable).
+     * @return int The new quote's ID.
+     */
     public function saveQuote(array $quoteData, array $markups, ?string $quoteName = null, ?string $customerInfo = null): int {
         $userId = $this->userSession->getUser()->getUID();
         $qb = $this->db->getQueryBuilder();
@@ -108,6 +162,11 @@ class EstimatorService {
         return (int)$this->db->lastInsertId();
     }
     
+    /**
+     * Get a quote by ID for the current user.
+     * @param int $quoteId
+     * @return array|null Quote data or null if not found.
+     */
     public function getQuote(int $quoteId): ?array {
         $userId = $this->userSession->getUser()->getUID();
         $qb = $this->db->getQueryBuilder();
@@ -135,6 +194,10 @@ class EstimatorService {
         return null;
     }
     
+    /**
+     * Get all quotes for the current user.
+     * @return array List of quotes (id, quote_name, total_amount, created_at, updated_at).
+     */
     public function getUserQuotes(): array {
         $userId = $this->userSession->getUser()->getUID();
         $qb = $this->db->getQueryBuilder();
@@ -159,6 +222,11 @@ class EstimatorService {
         return $quotes;
     }
     
+    /**
+     * Delete a quote by ID for the current user.
+     * @param int $quoteId
+     * @return bool True if a quote was deleted.
+     */
     public function deleteQuote(int $quoteId): bool {
         $userId = $this->userSession->getUser()->getUID();
         $qb = $this->db->getQueryBuilder();
@@ -171,6 +239,11 @@ class EstimatorService {
         return $affected > 0;
     }
     
+    /**
+     * Duplicate a quote by ID for the current user.
+     * @param int $quoteId
+     * @return int|null New quote ID or null if not found.
+     */
     public function duplicateQuote(int $quoteId): ?int {
         $quote = $this->getQuote($quoteId);
         if (!$quote) {
@@ -181,6 +254,13 @@ class EstimatorService {
         return $this->saveQuote($quote['quote_data'], $quote['markups'], $newQuoteName, $quote['customer_info']);
     }
     
+    /**
+     * Search pricing items by name and optional category.
+     * @param string $query Search string for item_name.
+     * @param string|null $category Optional category filter.
+     * @param int $limit Max results to return (default 50).
+     * @return array List of matching pricing items.
+     */
     public function searchPricing(string $query, ?string $category = null, int $limit = 50): array {
         $qb = $this->db->getQueryBuilder();
         
@@ -212,6 +292,11 @@ class EstimatorService {
         return $items;
     }
     
+    /**
+     * Get default markups for doors, frames, and hardware.
+     * Magic numbers: doors=15%, frames=12%, hardware=18% (defaults).
+     * @return array Associative array of markups.
+     */
     public function getDefaultMarkups(): array {
         $appId = 'door_estimator';
         return [
@@ -221,6 +306,11 @@ class EstimatorService {
         ];
     }
     
+    /**
+     * Update default markups for doors, frames, and hardware.
+     * @param array $markups Associative array (keys: doors, frames, hardware).
+     * @return bool Always true.
+     */
     public function updateDefaultMarkups(array $markups): bool {
         $appId = 'door_estimator';
         
@@ -237,6 +327,12 @@ class EstimatorService {
         return true;
     }
     
+    /**
+     * Generate a PDF (HTML for now) for a quote by ID.
+     * @param int $quoteId
+     * @return array|null ['path' => string, 'downloadUrl' => string] or null if not found.
+     * Note: In production, use a real PDF library (e.g., TCPDF).
+     */
     public function generateQuotePDF(int $quoteId): ?array {
         $quote = $this->getQuote($quoteId);
         if (!$quote) {
@@ -368,7 +464,40 @@ class EstimatorService {
     
     
     
+    /**
+     * Import pricing data from an uploaded file.
+     * @param array $uploadedFile Must include 'type', 'size', 'tmp_name'.
+     * Allowed types: text/csv, xls, xlsx. Max size: 5MB.
+     * @return array ['imported' => int, 'errors' => array]
+     */
     public function importPricingFromUpload(array $uploadedFile): array {
+        // Validate file type, size, and content (defense-in-depth)
+        $allowedTypes = [
+            'text/csv',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ];
+        $maxSize = 5 * 1024 * 1024; // 5MB
+
+        $fileType = $uploadedFile['type'] ?? '';
+        $fileSize = $uploadedFile['size'] ?? 0;
+        $tmpName = $uploadedFile['tmp_name'] ?? '';
+
+        $errors = [];
+        if (!in_array($fileType, $allowedTypes, true)) {
+            $errors[] = 'Unsupported file type';
+        }
+        if ($fileSize <= 0 || $fileSize > $maxSize) {
+            $errors[] = 'File size exceeds limit or is empty';
+        }
+        if (!is_readable($tmpName)) {
+            $errors[] = 'Uploaded file is not readable';
+        }
+        // Optionally, check file content (e.g., first bytes for CSV/XLSX signature)
+        if (!empty($errors)) {
+            return ['imported' => 0, 'errors' => $errors];
+        }
+
         // Implementation for bulk import from uploaded CSV/Excel files
         // This would parse the uploaded file and import pricing data
         return ['imported' => 0, 'errors' => ['Not implemented yet']];

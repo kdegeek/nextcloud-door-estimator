@@ -8,12 +8,20 @@ import pandas as pd
 import json
 import sys
 import os
+import argparse
+import logging
 from datetime import datetime
 from scripts.extractors import (
     extract_doors_sheet,
     extract_simple_pricing_sheet,
     extract_frames_sheet,
     extract_wood_door_sheet
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
 def main():

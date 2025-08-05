@@ -1,0 +1,140 @@
+openapi: 3.0.0
+info:
+  title: Door Estimator API
+  version: 1.0.0
+  description: API contract for quote management, pricing, and PDF generation.
+servers:
+  - url: https://your-nextcloud.com/apps/door_estimator/api
+paths:
+  /pricing:
+    get:
+      summary: Get all pricing data
+      responses:
+        '200':
+          description: Pricing data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PricingItem'
+  /pricing/update:
+    post:
+      summary: Update a pricing item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingItem'
+      responses:
+        '200':
+          description: Update result
+  /quote:
+    post:
+      summary: Create a new quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+      responses:
+        '200':
+          description: Quote created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+  /quote/{id}:
+    get:
+      summary: Get a quote by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Quote data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+  /quote/{id}/pdf:
+    get:
+      summary: Generate PDF for a quote
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+components:
+  schemas:
+    PricingItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+        subcategory:
+          type: string
+        item_name:
+          type: string
+        price:
+          type: number
+        stock_status:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    QuoteRequest:
+      type: object
+      properties:
+        quoteData:
+          type: array
+          items:
+            type: object
+        markups:
+          type: object
+        quoteName:
+          type: string
+        customerInfo:
+          type: string
+    Quote:
+      allOf:
+        - $ref: '#/components/schemas/QuoteRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+            total_amount:
+              type: number
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time

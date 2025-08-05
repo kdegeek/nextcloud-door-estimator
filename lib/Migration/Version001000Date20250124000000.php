@@ -97,6 +97,11 @@ class Version001000Date20250124000000 extends SimpleMigrationStep {
             $table->setPrimaryKey(['id']);
             $table->addIndex(['user_id'], 'de_quotes_usr');
             $table->addIndex(['created_at'], 'de_quotes_crt');
+
+            // Attempt to add a foreign key constraint to the users table.
+            // Note: Nextcloud user table name may vary by installation (e.g., oc_users, nc_users, etc.).
+            // For portability, this is commented out by default. Uncomment and adjust as needed for your deployment.
+            // $table->addForeignKeyConstraint('oc_users', ['user_id'], ['uid'], [], 'fk_quotes_user');
         }
         
         return $schema;

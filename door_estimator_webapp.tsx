@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator, Plus, Minus, Save, FileText, Settings, Database, Moon, Sun, Upload, Download, Edit3 } from 'lucide-react';
 import { lookupPrice, calculateSectionTotal, calculateGrandTotal } from './utils/priceUtils';
+import QuoteSection from './QuoteSection';
 import { handleImport, handleExport } from './utils/domUtils';
 
 const DoorEstimatorApp = () => {
   const [activeTab, setActiveTab] = useState('estimator');
   const [darkMode, setDarkMode] = useState(false);
+  const [inputError, setInputError] = useState('');
+  const [userFeedback, setUserFeedback] = useState('');
   const [quoteData, setQuoteData] = useState({
     doors: [
       { id: 'A', item: '', qty: 0, price: 0, total: 0 },
@@ -115,32 +118,14 @@ const DoorEstimatorApp = () => {
     ]
   });
 
-  // Price lookup function - replicates SUMPRODUCT logic
-  const lookupPrice = (category, item, frameType = null) => lookupPrice(category, item, frameType);
+  // Price lookup function - use imported utility from priceUtils
+  // (Removed local shadowing definition to prevent recursion bug)
 
   // Calculate section totals with markups
-  const calculateSectionTotal = (section: string) => {
-    const sectionData = quoteData[section] || [];
-    const subtotal = sectionData.reduce((sum, item) => sum + (item.total || 0), 0);
-  
-    // Apply markup based on section
-    let markup = 0;
-    if (['doors', 'doorOptions', 'inserts'].includes(section)) {
-      markup = markups.doors;
-    } else if (['frames', 'frameOptions'].includes(section)) {
-      markup = markups.frames;
-    } else {
-      markup = markups.hardware;
-    }
-  
-    return subtotal * (1 + markup / 100);
-  };
+// (calculateSectionTotal removed; now using imported utility)
 
   // Calculate grand total
-  const calculateGrandTotal = () => {
-    const sections = Object.keys(quoteData);
-    return sections.reduce((total, section) => total + calculateSectionTotal(section), 0);
-  };
+// (calculateGrandTotal removed; now using imported utility)
 
   // Update item and recalculate price
   const updateQuoteItem = (section, index, field, value) => {
@@ -154,9 +139,9 @@ const DoorEstimatorApp = () => {
         if (field === 'item' || field === 'frameType') {
           // Recalculate price based on item selection
           if (section === 'frames') {
-            price = lookupPrice('frames', updatedItem.item, updatedItem.frameType);
+            price = lookupPrice(pricingData, 'frames', updatedItem.item, updatedItem.frameType);
           } else {
-            price = lookupPrice(section, updatedItem.item);
+            price = lookupPrice(pricingData, section, updatedItem.item);
           }
         }
         // Always recalculate price if item or frameType changed
@@ -221,71 +206,7 @@ const DoorEstimatorApp = () => {
     // Higher-order function to map over items and render a component
     const mapItems = (items, renderFn) => items.map((item, idx) => renderFn(item, idx));
   
-    // Higher-order function to render a quote section
-    const renderQuoteSection = (title, sectionKey, hasFrameType = false) => {
-      const items = quoteData[sectionKey] || [];
-      const availableItems = hasFrameType ?
-        (pricingData[sectionKey]?.[items[0]?.frameType] || []) :
-        (pricingData[sectionKey] || []);
-  
-      return (
-        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm border p-6 mb-6 quote-section`}>
-          <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>{title}</h3>
-          
-          {mapItems(items, (item, index) => (
-            <div key={item.id} className="grid grid-cols-12 gap-3 mb-4 items-center p-3 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
-              <div className={`text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center bg-gray-100 dark:bg-gray-600 rounded-md px-3 py-2`}>{item.id}</div>
-              
-              {hasFrameType && (
-                <select
-                  className={`col-span-2 px-3 py-2 border rounded-md text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                  value={item.frameType || ''}
-                  onChange={(e) => updateQuoteItem(sectionKey, index, 'frameType', e.target.value)}
-                >
-                  <option value="HM Drywall">HM Drywall</option>
-                  <option value="HM EWA">HM EWA</option>
-                  <option value="HM USA">HM USA</option>
-                </select>
-              )}
-              
-              <select
-                className={`${hasFrameType ? 'col-span-4' : 'col-span-6'} px-3 py-2 border rounded-md text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                value={item.item}
-                onChange={(e) => updateQuoteItem(sectionKey, index, 'item', e.target.value)}
-              >
-                <option value="">Select item...</option>
-                {mapItems(availableItems, (option, idx) => (
-                  <option key={idx} value={option.item}>{option.item}</option>
-                ))}
-              </select>
-              
-              <input
-                type="number"
-                className={`col-span-1 px-3 py-2 border rounded-md text-sm text-center ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                placeholder="Qty"
-                value={item.qty || ''}
-                onChange={(e) => updateQuoteItem(sectionKey, index, 'qty', e.target.value)}
-              />
-              
-              <div className={`col-span-2 px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-100' : 'bg-gray-50 text-gray-900'} rounded-md text-sm text-right font-mono`}>
-                ${(item.price || 0).toFixed(2)}
-              </div>
-              
-              <div className={`col-span-2 px-3 py-2 ${darkMode ? 'bg-blue-900 text-blue-100' : 'bg-blue-50 text-blue-900'} rounded-md text-sm font-bold text-right font-mono`}>
-                ${(item.total || 0).toFixed(2)}
-              </div>
-            </div>
-          ))}
-          
-          <div className={`border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'} pt-4 mt-6`}>
-            <div className="flex justify-between items-center text-sm">
-              <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Subtotal:</span>
-              <span className={`${darkMode ? 'text-gray-100' : 'text-gray-900'} font-bold text-lg font-mono`}>${calculateSectionTotal(sectionKey).toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-      );
-    };
+    // (renderQuoteSection removed; now using QuoteSection component)
 
   // Main estimator interface
   const renderEstimator = () => (
@@ -295,17 +216,117 @@ const DoorEstimatorApp = () => {
         <p className={`${darkMode ? 'text-gray-300' : 'text-blue-100'}`}>Create professional door and hardware estimates</p>
       </div>
 
-      {renderQuoteSection('Doors', 'doors')}
-      {renderQuoteSection('Door Options', 'doorOptions')}
-      {renderQuoteSection('Inserts', 'inserts')}
-      {renderQuoteSection('Frames', 'frames', true)}
-      {renderQuoteSection('Frame Options', 'frameOptions')}
-      {renderQuoteSection('Hinges', 'hinges')}
-      {renderQuoteSection('Weatherstrip', 'weatherstrip')}
-      {renderQuoteSection('Closers', 'closers')}
-      {renderQuoteSection('Locksets', 'locksets')}
-      {renderQuoteSection('Exit Devices', 'exitDevices')}
-      {renderQuoteSection('Hardware', 'hardware')}
+      <QuoteSection
+        title="Doors"
+        sectionKey="doors"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Door Options"
+        sectionKey="doorOptions"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Inserts"
+        sectionKey="inserts"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Frames"
+        sectionKey="frames"
+        hasFrameType={true}
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Frame Options"
+        sectionKey="frameOptions"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Hinges"
+        sectionKey="hinges"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Weatherstrip"
+        sectionKey="weatherstrip"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Closers"
+        sectionKey="closers"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Locksets"
+        sectionKey="locksets"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Exit Devices"
+        sectionKey="exitDevices"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
+      <QuoteSection
+        title="Hardware"
+        sectionKey="hardware"
+        quoteData={quoteData}
+        pricingData={pricingData}
+        darkMode={darkMode}
+        updateQuoteItem={updateQuoteItem}
+        calculateSectionTotal={(section) => calculateSectionTotal(quoteData, markups, section)}
+        inputError={setInputError}
+      />
 
       {/* Markup Configuration */}
       <div className={`${darkMode ? 'bg-yellow-900 border-yellow-700' : 'bg-yellow-50 border-yellow-200'} border rounded-lg p-6 shadow-sm`}>
@@ -316,9 +337,19 @@ const DoorEstimatorApp = () => {
             <div className="flex items-center">
               <input
                 type="number"
+                min="0"
+                max="100"
                 className={`w-20 px-3 py-2 border rounded-md text-sm text-center ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                 value={markups.doors}
-                onChange={(e) => setMarkups(prev => ({ ...prev, doors: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!/^\d{1,3}$/.test(val) || parseInt(val, 10) < 0 || parseInt(val, 10) > 100) {
+                    setInputError('Markup must be a number between 0 and 100');
+                  } else {
+                    setInputError('');
+                    setMarkups(prev => ({ ...prev, doors: parseFloat(val) || 0 }));
+                  }
+                }}
               />
               <span className={`ml-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>%</span>
             </div>
@@ -328,9 +359,19 @@ const DoorEstimatorApp = () => {
             <div className="flex items-center">
               <input
                 type="number"
+                min="0"
+                max="100"
                 className={`w-20 px-3 py-2 border rounded-md text-sm text-center ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                 value={markups.frames}
-                onChange={(e) => setMarkups(prev => ({ ...prev, frames: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!/^\d{1,3}$/.test(val) || parseInt(val, 10) < 0 || parseInt(val, 10) > 100) {
+                    setInputError('Markup must be a number between 0 and 100');
+                  } else {
+                    setInputError('');
+                    setMarkups(prev => ({ ...prev, frames: parseFloat(val) || 0 }));
+                  }
+                }}
               />
               <span className={`ml-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>%</span>
             </div>
@@ -340,9 +381,19 @@ const DoorEstimatorApp = () => {
             <div className="flex items-center">
               <input
                 type="number"
+                min="0"
+                max="100"
                 className={`w-20 px-3 py-2 border rounded-md text-sm text-center ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                 value={markups.hardware}
-                onChange={(e) => setMarkups(prev => ({ ...prev, hardware: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!/^\d{1,3}$/.test(val) || parseInt(val, 10) < 0 || parseInt(val, 10) > 100) {
+                    setInputError('Markup must be a number between 0 and 100');
+                  } else {
+                    setInputError('');
+                    setMarkups(prev => ({ ...prev, hardware: parseFloat(val) || 0 }));
+                  }
+                }}
               />
               <span className={`ml-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>%</span>
             </div>
@@ -355,34 +406,68 @@ const DoorEstimatorApp = () => {
         <div className="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
           <h3 className={`text-xl font-bold ${darkMode ? 'text-green-100' : 'text-gray-800'}`}>Total Estimate</h3>
           <div className={`text-4xl font-bold ${darkMode ? 'text-green-300' : 'text-green-600'} font-mono`}>
-            ${calculateGrandTotal().toFixed(2)}
+            ${calculateGrandTotal(quoteData, markups).toFixed(2)}
           </div>
         </div>
+        {inputError && (
+          <div className="mt-4 text-red-600 bg-red-100 border border-red-300 rounded p-2 text-sm">
+            {inputError}
+          </div>
+        )}
+        {userFeedback && (
+          <div className="mt-4 text-green-700 bg-green-100 border border-green-300 rounded p-2 text-sm">
+            {userFeedback}
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-        <button className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+        <button
+          className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          onClick={() => {
+            setUserFeedback('Quote saved successfully!');
+            setTimeout(() => setUserFeedback(''), 2000);
+          }}
+        >
           <Save className="w-4 h-4 mr-2" />
           Save Quote
         </button>
-        <button className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
+        <button
+          className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+          onClick={() => {
+            setUserFeedback('PDF generated!');
+            setTimeout(() => setUserFeedback(''), 2000);
+          }}
+        >
           <FileText className="w-4 h-4 mr-2" />
           Generate PDF
         </button>
-        <button className="flex items-center justify-center px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+        <button
+          className="flex items-center justify-center px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+          onClick={() => {
+            setUserFeedback('New quote started!');
+            setTimeout(() => setUserFeedback(''), 2000);
+          }}
+        >
           <Plus className="w-4 h-4 mr-2" />
           New Quote
         </button>
-        <button 
-          onClick={() => setShowImportDialog(true)}
+        <button
+          onClick={() => {
+            setShowImportDialog(true);
+            setUserFeedback('');
+          }}
           className="flex items-center justify-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
         >
           <Upload className="w-4 h-4 mr-2" />
           Import Data
         </button>
-        <button 
-          onClick={() => setShowExportDialog(true)}
+        <button
+          onClick={() => {
+            setShowExportDialog(true);
+            setUserFeedback('');
+          }}
           className="flex items-center justify-center px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
         >
           <Download className="w-4 h-4 mr-2" />

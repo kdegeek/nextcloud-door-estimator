@@ -1,0 +1,14 @@
+{
+  "species_mapping": {
+    "Lauan": 9,
+    "Birch": 10,
+    "Oak": 11,
+    "Raw HB": 12,
+    "Legacy": 13
+  },
+  "frame_subcategories": [
+    {"match": "EWA", "subcategory": "HM EWA"},
+    {"match": "USA", "subcategory": "HM USA"},
+    {"match": "default", "subcategory": "HM Drywall"}
+  ]
+}

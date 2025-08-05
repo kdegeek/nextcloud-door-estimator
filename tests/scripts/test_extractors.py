@@ -72,3 +72,51 @@ def test_extract_wood_door_sheet_basic():
     assert result[5]['item_name'].startswith('32x80 Solid Core Wood Door - Lauan')
     assert result[0]['price'] == 200.0
     assert result[9]['price'] == 340.0
+def test_extract_doors_sheet_empty():
+    import pandas as pd
+    df = pd.DataFrame([])
+    result = extract_doors_sheet(df)
+    assert result == []
+
+def test_extract_simple_pricing_sheet_empty():
+    import pandas as pd
+    df = pd.DataFrame([])
+    result = extract_simple_pricing_sheet(df, 'hinges')
+    assert result == []
+
+def test_extract_frames_sheet_empty():
+    import pandas as pd
+    df = pd.DataFrame([])
+    result = extract_frames_sheet(df)
+    assert result == []
+
+def test_extract_wood_door_sheet_empty():
+    import pandas as pd
+    df = pd.DataFrame([])
+    result = extract_wood_door_sheet(df, 'scwood')
+    assert result == []
+
+def test_extract_doors_sheet_invalid_types():
+    import pandas as pd
+    df = pd.DataFrame([['Door A', 'not_a_price', None]])
+    result = extract_doors_sheet(df)
+    # Should skip or handle invalid price gracefully
+    assert isinstance(result, list)
+
+def test_extract_simple_pricing_sheet_missing_columns():
+    import pandas as pd
+    df = pd.DataFrame([['OnlyOneColumn']])
+    result = extract_simple_pricing_sheet(df, 'hinges')
+    assert isinstance(result, list)
+
+def test_extract_frames_sheet_missing_columns():
+    import pandas as pd
+    df = pd.DataFrame([['OnlyOneColumn']])
+    result = extract_frames_sheet(df)
+    assert isinstance(result, list)
+
+def test_extract_wood_door_sheet_missing_columns():
+    import pandas as pd
+    df = pd.DataFrame([[None]*5])
+    result = extract_wood_door_sheet(df, 'scwood')
+    assert isinstance(result, list)
