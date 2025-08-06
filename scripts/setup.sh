@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Door Estimator NextCloud App Setup Script
 # This script automates the installation process
@@ -23,19 +23,19 @@ LOG_FILE="${LOG_FILE:-/var/log/door_estimator_setup.log}"
 
 # Function to print colored output
 print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    printf "%s[INFO]%s %s\n" "$BLUE" "$NC" "$1"
 }
 
 print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    printf "%s[SUCCESS]%s %s\n" "$GREEN" "$NC" "$1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    printf "%s[WARNING]%s %s\n" "$YELLOW" "$NC" "$1"
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    printf "%s[ERROR]%s %s\n" "$RED" "$NC" "$1"
     echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG_FILE"
 }
 
@@ -88,8 +88,8 @@ check_requirements() {
     print_success "PHP version: $PHP_VERSION"
     
     # Check required PHP extensions
-    REQUIRED_EXTENSIONS=("pdo" "json" "curl" "mbstring" "xml")
-    for ext in "${REQUIRED_EXTENSIONS[@]}"; do
+    REQUIRED_EXTENSIONS="pdo json curl mbstring xml"
+    for ext in $REQUIRED_EXTENSIONS; do
         if ! php -m | grep -q "^$ext$"; then
             print_error "Required PHP extension missing: $ext"
             exit 1
@@ -152,45 +152,6 @@ install_app() {
     rm -rf "$TEMP_DIR"
     
     # --- Node.js Auto-Install Logic ---
-    ensure_nodejs() {
-        if command -v node >/dev/null 2>&1; then
-            return 0
-        fi
-    
-        print_warning "Node.js is required but not found. Attempting automatic installation..."
-    
-        # Check if running as root
-        if [ "$EUID" -ne 0 ]; then
-            print_error "Node.js is missing and this script is not running as root."
-            print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download or via your package manager."
-            exit 1
-        fi
-    
-        # Detect Debian/Ubuntu
-        if [ -f /etc/os-release ]; then
-            . /etc/os-release
-            if [[ "$ID" == "debian" || "$ID" == "ubuntu" || "$ID_LIKE" == *"debian"* ]]; then
-                print_status "Detected Debian/Ubuntu. Installing Node.js v18 LTS using apt-get..."
-                apt-get update && \
-                curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-                apt-get install -y nodejs
-                if command -v node >/dev/null 2>&1; then
-                    print_success "Node.js v18 LTS installed successfully."
-                    return 0
-                else
-                    print_error "Automatic Node.js installation failed."
-                    print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download"
-                    exit 1
-                fi
-            fi
-        fi
-    
-        print_error "Node.js is missing and automatic installation is only supported on Debian/Ubuntu as root."
-        print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download"
-        exit 1
-    }
-    
-    ensure_nodejs
     
     # --- Build Vue 3 Frontend ---
     print_status "Checking for Node.js and npm (required for frontend build)..."
@@ -222,6 +183,45 @@ install_app() {
     cd - >/dev/null
     
     print_success "Application files installed from GitHub"
+}
+
+# POSIX-compliant ensure_nodejs (moved to top-level)
+ensure_nodejs() {
+    if command -v node >/dev/null 2>&1; then
+        return 0
+    fi
+
+    print_warning "Node.js is required but not found. Attempting automatic installation..."
+
+    # Check if running as root
+    if [ "$EUID" -ne 0 ]; then
+        print_error "Node.js is missing and this script is not running as root."
+        print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download or via your package manager."
+        exit 1
+    fi
+
+    # Detect Debian/Ubuntu
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        if [ "$ID" = "debian" ] || [ "$ID" = "ubuntu" ] || echo "$ID_LIKE" | grep -q "debian"; then
+            print_status "Detected Debian/Ubuntu. Installing Node.js v18 LTS using apt-get..."
+            apt-get update && \
+            curl -fsSL https://deb.nodesource.com/setup_18.x | sh - && \
+            apt-get install -y nodejs
+            if command -v node >/dev/null 2>&1; then
+                print_success "Node.js v18 LTS installed successfully."
+                return 0
+            else
+                print_error "Automatic Node.js installation failed."
+                print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download"
+                exit 1
+            fi
+        fi
+    fi
+
+    print_error "Node.js is missing and automatic installation is only supported on Debian/Ubuntu as root."
+    print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download"
+    exit 1
 }
 
 # Function to set permissions
@@ -391,11 +391,12 @@ main() {
     check_requirements
     backup_existing
     install_app
+    ensure_nodejs
     set_permissions
     install_dependencies
     enable_app
     import_data
-    
+
     if verify_installation; then
         show_instructions
     else
