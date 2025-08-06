@@ -263,9 +263,32 @@ check_requirements() {
         exit 1
     fi
 
-    # Check database connectivity
-    if ! sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:show-tables >/dev/null 2>&1; then
+    # Print database connection parameters from config.php
+    CONFIG_FILE="$NEXTCLOUD_ROOT/config/config.php"
+    echo "================ Database Connection Debug ================"
+    if [ -f "$CONFIG_FILE" ]; then
+        echo "[DEBUG] Nextcloud config file: $CONFIG_FILE"
+        # Extract DB config lines, redact password
+        awk '
+            /dbtype|dbname|dbhost|dbuser|dbport|dbpassword/ {
+                if ($0 ~ /dbpassword/) {
+                    sub(/'\''[^'\'']*'\''/, "'\''***REDACTED***'\''")
+                }
+                print
+            }
+        ' "$CONFIG_FILE"
+    else
+        echo "[ERROR] Nextcloud config file not found at $CONFIG_FILE"
+    fi
+    echo "=========================================================="
+
+    # Check database connectivity and print error if it fails
+    DB_ERROR_MSG=""
+    if ! DB_ERROR_MSG=$(sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:show-tables 2>&1); then
         print_error "Cannot connect to NextCloud database"
+        echo "================ Database Connection Error ==============="
+        echo "$DB_ERROR_MSG"
+        echo "=========================================================="
         exit 1
     fi
     print_success "Database connectivity verified"
