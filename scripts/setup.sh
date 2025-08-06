@@ -114,6 +114,60 @@ check_nextcloud() {
     print_success "NextCloud installation verified"
 }
 
+# Function to detect OS type for package instructions
+detect_os_type() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        if [ "$ID" = "alpine" ]; then
+            echo "alpine"
+        elif [ "$ID" = "debian" ] || [ "$ID" = "ubuntu" ] || echo "$ID_LIKE" | grep -q "debian"; then
+            echo "debian"
+        elif [ "$ID" = "centos" ] || [ "$ID" = "rhel" ] || [ "$ID_LIKE" = "rhel fedora" ]; then
+            echo "redhat"
+        else
+            echo "$ID"
+        fi
+    else
+        unameOut="$(uname -s)"
+        case "${unameOut}" in
+            Linux*)     echo "linux";;
+            Darwin*)    echo "macos";;
+            *)          echo "unknown";;
+        esac
+    fi
+}
+
+# Function to print install instructions for missing PHP extensions
+print_php_extension_instructions() {
+    OS_TYPE=$(detect_os_type)
+    PHP_MAJOR=$(php -r "echo PHP_MAJOR_VERSION;" 2>/dev/null || echo "8")
+    PHP_MINOR=$(php -r "echo PHP_MINOR_VERSION;" 2>/dev/null || echo "0")
+    PHP_VER="${PHP_MAJOR}.${PHP_MINOR}"
+
+    for ext in "$@"; do
+        case "$OS_TYPE" in
+            alpine)
+                # Alpine uses php8-<ext>
+                echo "  apk add php${PHP_MAJOR}-${ext}"
+                ;;
+            debian)
+                # Debian/Ubuntu uses php<ver>-<ext>
+                echo "  apt-get install php${PHP_VER}-${ext}"
+                ;;
+            redhat)
+                # RHEL/CentOS uses php-<ext>
+                echo "  yum install php-${ext}"
+                ;;
+            macos)
+                echo "  brew install php"
+                ;;
+            *)
+                echo "  # Please install PHP extension: $ext (unknown OS)"
+                ;;
+        esac
+    done
+}
+
 # Function to check system requirements
 check_requirements() {
     print_status "Checking system requirements..."
@@ -129,15 +183,33 @@ check_requirements() {
     # Check required PHP extensions
     REQUIRED_EXTENSIONS="pdo json curl mbstring xml"
     debug_trace "Checking required PHP extensions: $REQUIRED_EXTENSIONS"
+    MISSING_EXTENSIONS=""
     for ext in $REQUIRED_EXTENSIONS; do
         debug_trace "Checking PHP extension: $ext"
         if ! php -m | grep -q "^$ext$"; then
-            print_error "Required PHP extension missing: $ext"
-            exit 1
+            MISSING_EXTENSIONS="$MISSING_EXTENSIONS $ext"
         fi
     done
+    if [ -n "$MISSING_EXTENSIONS" ]; then
+        print_error "The following required PHP extensions are missing:$MISSING_EXTENSIONS"
+        echo "To install, run the following commands as root (or with sudo):"
+        print_php_extension_instructions $MISSING_EXTENSIONS
+        exit 1
+    fi
     print_success "Required PHP extensions available"
-    
+
+    # Check for at least one common PHP PDO database driver
+    if ! php -m | grep -q "^pdo_mysql$" && ! php -m | grep -q "^pdo_pgsql$" && ! php -m | grep -q "^pdo_sqlite$"; then
+        print_warning "No common PHP PDO database driver (pdo_mysql, pdo_pgsql, pdo_sqlite) is enabled."
+        echo "You may need to install a database driver for your Nextcloud database backend."
+        echo "For MySQL/MariaDB: "
+        print_php_extension_instructions pdo_mysql
+        echo "For PostgreSQL: "
+        print_php_extension_instructions pdo_pgsql
+        echo "For SQLite: "
+        print_php_extension_instructions pdo_sqlite
+    fi
+
     # Check database connectivity
     if ! sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:show-tables >/dev/null 2>&1; then
         print_error "Cannot connect to NextCloud database"
