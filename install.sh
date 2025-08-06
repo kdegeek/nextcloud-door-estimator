@@ -105,6 +105,23 @@ else
     print_status "No preserved pricing data to restore."
 fi
 
+# --- Build Vue 3 Frontend ---
+print_status "Checking for Node.js and npm (required for frontend build)..."
+if ! command -v node >/dev/null 2>&1; then
+    print_error "Node.js is required to build the frontend but was not found."
+    print_status "Please install Node.js v16+ and rerun this script, or build manually with: cd $APP_DIR && sh scripts/build.sh"
+    exit 1
+fi
+if ! command -v npm >/dev/null 2>&1; then
+    print_error "npm is required to build the frontend but was not found."
+    print_status "Please install npm and rerun this script, or build manually with: cd $APP_DIR && sh scripts/build.sh"
+    exit 1
+fi
+print_status "Building Vue 3 frontend (npm install + webpack build)..."
+cd "$APP_DIR"
+sh scripts/build.sh || { print_error "Frontend build failed. See above for details."; exit 1; }
+cd - >/dev/null
+
 # PHP dependencies are already bundled in vendor/
 print_status "All PHP dependencies are already bundled in the vendor/ directory."
 print_status "Advanced PDF features are always available—no additional setup required."

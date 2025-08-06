@@ -199,7 +199,25 @@ install_app() {
     else
         print_status "No preserved pricing data to restore."
     fi
-
+    
+    # --- Build Vue 3 Frontend in Container ---
+    print_status "Checking for Node.js and npm in container (required for frontend build)..."
+    if ! docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
+        print_error "Node.js is required to build the frontend but was not found in the container."
+        print_status "Please install Node.js v16+ in the container and rerun this script, or build manually with: docker exec $AIO_CONTAINER_NAME bash -c 'cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh'"
+        exit 1
+    fi
+    if ! docker exec "$AIO_CONTAINER_NAME" command -v npm >/dev/null 2>&1; then
+        print_error "npm is required to build the frontend but was not found in the container."
+        print_status "Please install npm in the container and rerun this script, or build manually with: docker exec $AIO_CONTAINER_NAME bash -c 'cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh'"
+        exit 1
+    fi
+    print_status "Building Vue 3 frontend in container (npm install + webpack build)..."
+    if ! docker exec "$AIO_CONTAINER_NAME" bash -c "cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh"; then
+        print_error "Frontend build failed in container. See above for details."
+        exit 1
+    fi
+    
     print_success "Application files installed"
 }
 
