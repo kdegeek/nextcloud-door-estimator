@@ -718,17 +718,23 @@ const DoorEstimatorApp = () => {
     </div>
   );
   // On mount, check onboarding status
+// DEBUG LOG: Starting onboarding status fetch
   useEffect(() => {
+    console.log('Fetching onboarding status from /apps/door_estimator/api/onboardingStatus');
     fetch('/apps/door_estimator/api/onboardingStatus', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
+        console.log('Fetch to /apps/door_estimator/api/onboardingStatus resolved successfully:', data);
         if (typeof data.onboardingRequired === 'boolean') {
           setOnboardingRequired(data.onboardingRequired);
         } else {
           setOnboardingRequired(false); // fallback: allow app if error
         }
       })
-      .catch(() => setOnboardingRequired(false));
+      .catch((err) => {
+        console.log('Fetch to /apps/door_estimator/api/onboardingStatus failed:', err);
+        setOnboardingRequired(false);
+      });
   }, []);
 
   // Onboarding UI (blocking overlay)
