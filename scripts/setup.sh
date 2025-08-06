@@ -18,14 +18,47 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration (allow override via env or args)
-NEXTCLOUD_ROOT="${NEXTCLOUD_ROOT:-/var/www/nextcloud}"
+# Nextcloud path detection logic (env, arg, auto-detect)
+detect_nextcloud_path() {
+    # 1. If NEXTCLOUD_PATH is set, use it
+    if [ -n "${NEXTCLOUD_PATH:-}" ]; then
+        echo "$NEXTCLOUD_PATH"
+        return
+    fi
+    # 2. If NEXTCLOUD_ROOT is set (legacy), use it
+    if [ -n "${NEXTCLOUD_ROOT:-}" ]; then
+        echo "$NEXTCLOUD_ROOT"
+        return
+    fi
+    # 3. Auto-detect common locations
+    if [ -d "/var/www/nextcloud" ]; then
+        echo "/var/www/nextcloud"
+        return
+    fi
+    if [ -d "/var/www/html" ]; then
+        echo "/var/www/html"
+        return
+    fi
+    # 4. Not found
+    echo ""
+}
+
+# Configuration (allow override via env, arg, or auto-detect)
+NEXTCLOUD_PATH="$(detect_nextcloud_path)"
+if [ -z "$NEXTCLOUD_PATH" ]; then
+    echo "[ERROR] Could not detect Nextcloud installation path. Set NEXTCLOUD_PATH or use --nextcloud-path argument."
+    exit 1
+fi
+
 APP_NAME="${APP_NAME:-door_estimator}"
-APP_DIR="${APP_DIR:-$NEXTCLOUD_ROOT/apps/$APP_NAME}"
+APP_DIR="${APP_DIR:-$NEXTCLOUD_PATH/apps/$APP_NAME}"
 WEB_USER="${WEB_USER:-www-data}"
 GITHUB_REPO="${GITHUB_REPO:-https://github.com/kdegeek/nextcloud-door-estimator.git}"
 TEMP_DIR="${TEMP_DIR:-/tmp/door-estimator-install}"
 LOG_FILE="${LOG_FILE:-/var/log/door_estimator_setup.log}"
+
+# For backward compatibility, set NEXTCLOUD_ROOT as well
+NEXTCLOUD_ROOT="$NEXTCLOUD_PATH"
 
 # Function to print colored output
 print_status() {
@@ -419,17 +452,21 @@ case "${1-}" in
     --help|-h)
         echo "Door Estimator Setup Script"
         echo ""
-        echo "Usage: $0 [options]"
+        echo "Usage: $0 [options] [NEXTCLOUD_PATH]"
         echo ""
         echo "Options:"
-        echo "  --help, -h           Show this help message"
-        echo "  --check              Check system requirements only"
-        echo "  --root PATH          Override NEXTCLOUD_ROOT"
-        echo "  --app-name NAME      Override APP_NAME"
-        echo "  --app-dir DIR        Override APP_DIR"
+        echo "  --help, -h               Show this help message"
+        echo "  --check                  Check system requirements only"
+        echo "  --root PATH              Override Nextcloud path (legacy, same as --nextcloud-path)"
+        echo "  --nextcloud-path PATH    Set Nextcloud installation path"
+        echo "  --app-name NAME          Override APP_NAME"
+        echo "  --app-dir DIR            Override APP_DIR"
         echo ""
         echo "Environment variables can also be used to override:"
-        echo "  NEXTCLOUD_ROOT, APP_NAME, APP_DIR, WEB_USER, GITHUB_REPO, TEMP_DIR, LOG_FILE"
+        echo "  NEXTCLOUD_PATH, NEXTCLOUD_ROOT, APP_NAME, APP_DIR, WEB_USER, GITHUB_REPO, TEMP_DIR, LOG_FILE"
+        echo ""
+        echo "You may also provide the Nextcloud path as a positional argument:"
+        echo "  $0 /path/to/nextcloud"
         echo ""
         echo "This script will:"
         echo "  1. Verify system requirements"
@@ -448,9 +485,10 @@ case "${1-}" in
         print_success "All requirements met!"
         exit 0
         ;;
-    --root)
+    --root|--nextcloud-path)
         shift
-        export NEXTCLOUD_ROOT="${1-}"
+        export NEXTCLOUD_PATH="${1-}"
+        export NEXTCLOUD_ROOT="$NEXTCLOUD_PATH"
         shift
         main
         ;;
@@ -466,7 +504,14 @@ case "${1-}" in
         shift
         main
         ;;
+    "")
+        main
+        ;;
     *)
+        # If a positional argument is given, treat as Nextcloud path
+        export NEXTCLOUD_PATH="$1"
+        export NEXTCLOUD_ROOT="$NEXTCLOUD_PATH"
+        shift
         main
         ;;
 esac
