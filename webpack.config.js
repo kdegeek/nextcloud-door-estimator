@@ -61,8 +61,9 @@ module.exports = (env, argv) => {
         }
     };
 
-    // Source maps for development
-    baseConfig.devtool = isDev ? 'source-map' : false;
+    // Enforce devtool=false for CSP compliance: prevents use of eval/Function in build output.
+    // This disables all source maps and overrides any value from @nextcloud/webpack-config or environment variables.
+    baseConfig.devtool = false;
 
     // Dev server config (for local development)
     baseConfig.devServer = {
