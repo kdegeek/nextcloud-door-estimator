@@ -4,6 +4,12 @@
 # This script automates the installation process
 
 set -e
+set -u
+
+# Debug function for tracing
+debug_trace() {
+    printf "%s[DEBUG]%s %s\n" "$YELLOW" "$NC" "$1"
+}
 
 # Colors for output
 RED='\033[0;31m'
@@ -89,7 +95,9 @@ check_requirements() {
     
     # Check required PHP extensions
     REQUIRED_EXTENSIONS="pdo json curl mbstring xml"
+    debug_trace "Checking required PHP extensions: $REQUIRED_EXTENSIONS"
     for ext in $REQUIRED_EXTENSIONS; do
+        debug_trace "Checking PHP extension: $ext"
         if ! php -m | grep -q "^$ext$"; then
             print_error "Required PHP extension missing: $ext"
             exit 1
@@ -168,6 +176,7 @@ install_app() {
     
     # --- NPM Version Check and Guidance ---
     NPM_VERSION=$(npm --version 2>/dev/null || echo "unknown")
+    debug_trace "Detected npm version: $NPM_VERSION"
     NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
     if [ "$NPM_MAJOR" = "10" ]; then
         print_warning "npm version 10 detected (version: $NPM_VERSION)."
@@ -321,8 +330,8 @@ verify_installation() {
     
     # Check database tables
     PRICING_COUNT=$(sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json 2>/dev/null | grep -o '"count":"[0-9]*"' | cut -d'"' -f4 || echo "0")
-    
-    if [ "$PRICING_COUNT" -gt 0 ]; then
+    debug_trace "PRICING_COUNT result: $PRICING_COUNT"
+    if [ "$PRICING_COUNT" -gt 0 ] 2>/dev/null; then
         print_success "Database contains $PRICING_COUNT pricing items"
     else
         print_warning "No pricing data found in database"
@@ -406,7 +415,7 @@ main() {
 }
 
 # Handle command line arguments
-case "${1:-}" in
+case "${1-}" in
     --help|-h)
         echo "Door Estimator Setup Script"
         echo ""
@@ -441,19 +450,19 @@ case "${1:-}" in
         ;;
     --root)
         shift
-        export NEXTCLOUD_ROOT="$1"
+        export NEXTCLOUD_ROOT="${1-}"
         shift
         main
         ;;
     --app-name)
         shift
-        export APP_NAME="$1"
+        export APP_NAME="${1-}"
         shift
         main
         ;;
     --app-dir)
         shift
-        export APP_DIR="$1"
+        export APP_DIR="${1-}"
         shift
         main
         ;;
