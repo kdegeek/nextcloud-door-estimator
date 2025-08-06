@@ -171,7 +171,45 @@ print_php_extension_instructions() {
 # Function to check system requirements
 check_requirements() {
     print_status "Checking system requirements..."
-    
+
+    # --- BEGIN PDO/EXTENSION DEBUG OUTPUT ---
+    echo "================ PDO/Extension Debug Output ================"
+    echo "[DEBUG] Output of: php -m"
+    php -m || echo "[ERROR] Failed to run 'php -m'"
+    echo
+
+    echo "[DEBUG] Output of: php --ini"
+    php --ini || echo "[ERROR] Failed to run 'php --ini'"
+    echo
+
+    echo "[DEBUG] Output of: php -i | grep extension_dir"
+    php -i 2>/dev/null | grep extension_dir || echo "[ERROR] Failed to run 'php -i | grep extension_dir'"
+    echo
+
+    echo "[DEBUG] Output of: ls /etc/php*/conf.d/"
+    ls -l /etc/php*/conf.d/ 2>/dev/null || echo "[INFO] /etc/php*/conf.d/ not found"
+    echo
+
+    echo "[DEBUG] Output of: ls /usr/lib/php*/modules/"
+    ls -l /usr/lib/php*/modules/ 2>/dev/null || echo "[INFO] /usr/lib/php*/modules/ not found"
+    echo
+
+    # Alpine Linux alternative locations
+    if [ -d /etc/php8/conf.d ] || [ -d /usr/lib/php8/modules ]; then
+        echo "[DEBUG] Output of: ls /etc/php8/conf.d/"
+        ls -l /etc/php8/conf.d/ 2>/dev/null || echo "[INFO] /etc/php8/conf.d/ not found"
+        echo
+
+        echo "[DEBUG] Output of: ls /usr/lib/php8/modules/"
+        ls -l /usr/lib/php8/modules/ 2>/dev/null || echo "[INFO] /usr/lib/php8/modules/ not found"
+        echo
+    fi
+
+    echo "[DEBUG] Output of: php -r 'var_dump(extension_loaded(\"pdo_mysql\"));'"
+    php -r 'var_dump(extension_loaded("pdo_mysql"));' || echo "[ERROR] Failed to run extension_loaded check"
+    echo "==========================================================="
+    # --- END PDO/EXTENSION DEBUG OUTPUT ---
+
     # Check PHP version
     PHP_VERSION=$(php -r "echo PHP_VERSION;" 2>/dev/null || echo "0")
     if [ "$(echo "$PHP_VERSION" | cut -d. -f1)" -lt 8 ]; then
