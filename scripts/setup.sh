@@ -282,16 +282,20 @@ check_requirements() {
     fi
     echo "=========================================================="
 
-    # Check database connectivity and print error if it fails
-    DB_ERROR_MSG=""
-    if ! DB_ERROR_MSG=$(sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:show-tables 2>&1); then
-        print_error "Cannot connect to NextCloud database"
-        echo "================ Database Connection Error ==============="
-        echo "$DB_ERROR_MSG"
-        echo "=========================================================="
-        exit 1
+    # Database connectivity check is now optional.
+    if [ "${CHECK_DB:-0}" = "1" ]; then
+        DB_ERROR_MSG=""
+        if ! DB_ERROR_MSG=$(sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:show-tables 2>&1); then
+            print_error "Cannot connect to NextCloud database"
+            echo "================ Database Connection Error ==============="
+            echo "$DB_ERROR_MSG"
+            echo "=========================================================="
+            exit 1
+        fi
+        print_success "Database connectivity verified"
+    else
+        print_status "Skipping database connectivity check (set CHECK_DB=1 or use --check-db to enable)"
     fi
-    print_success "Database connectivity verified"
 }
 
 # Function to backup existing installation
@@ -605,13 +609,14 @@ case "${1-}" in
         echo "Options:"
         echo "  --help, -h               Show this help message"
         echo "  --check                  Check system requirements only"
+        echo "  --check-db               Also check database connectivity (or set CHECK_DB=1 env var)"
         echo "  --root PATH              Override Nextcloud path (legacy, same as --nextcloud-path)"
         echo "  --nextcloud-path PATH    Set Nextcloud installation path"
         echo "  --app-name NAME          Override APP_NAME"
         echo "  --app-dir DIR            Override APP_DIR"
         echo ""
         echo "Environment variables can also be used to override:"
-        echo "  NEXTCLOUD_PATH, NEXTCLOUD_ROOT, APP_NAME, APP_DIR, WEB_USER, GITHUB_REPO, TEMP_DIR, LOG_FILE"
+        echo "  NEXTCLOUD_PATH, NEXTCLOUD_ROOT, APP_NAME, APP_DIR, WEB_USER, GITHUB_REPO, TEMP_DIR, LOG_FILE, CHECK_DB"
         echo ""
         echo "You may also provide the Nextcloud path as a positional argument:"
         echo "  $0 /path/to/nextcloud"
@@ -632,6 +637,11 @@ case "${1-}" in
         check_requirements
         print_success "All requirements met!"
         exit 0
+        ;;
+    --check-db)
+        export CHECK_DB=1
+        shift
+        main
         ;;
     --root|--nextcloud-path)
         shift
