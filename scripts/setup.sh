@@ -52,7 +52,7 @@ command_exists() {
 
 # Function to check if running as root
 check_root() {
-    if [ "$EUID" -ne 0 ]; then
+    if [ "$(id -u)" -ne 0 ]; then
         print_error "This script must be run as root (use sudo)"
         exit 1
     fi
@@ -203,7 +203,7 @@ ensure_nodejs() {
     print_warning "Node.js is required but not found. Attempting automatic installation..."
 
     # Check if running as root
-    if [ "$EUID" -ne 0 ]; then
+    if [ "$(id -u)" -ne 0 ]; then
         print_error "Node.js is missing and this script is not running as root."
         print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download or via your package manager."
         exit 1
