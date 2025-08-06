@@ -32,8 +32,16 @@ sudo ./install-aio.sh
 
 - **Docker**: Installed and running
 - **NextCloud AIO**: Container running and accessible
+- **Node.js v16+**: Required in the container to build the Vue 3 frontend
 - **User Permissions**: Root access or user in docker group
 - **Internet Access**: For downloading from GitHub
+
+> **Node.js v16+ is required to build the Vue 3 frontend inside the container.**
+> If Node.js is not present in your container, install it with:
+> ```bash
+> curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+> ```
+> Verify installation with `node -v` (should be 16.x or higher).
 
 ### Verify Your AIO Setup
 
@@ -130,6 +138,16 @@ docker exec -u www-data nextcloud-aio-nextcloud php /var/www/html/occ door-estim
 # Check your AIO compose file for volume mappings
 docker exec nextcloud-aio-nextcloud ls -la /var/www/html/apps/door_estimator/
 ```
+
+## 🔧 Manual Frontend Build in AIO Containers
+
+If you need to manually build the frontend inside a NextCloud AIO container (for example, after updating source code), run:
+
+```bash
+docker exec nextcloud-aio-nextcloud bash -c 'cd /var/www/html/apps/door_estimator && sh scripts/build.sh'
+```
+
+Ensure Node.js v16+ is installed in the container before running the build script.
 
 ## 🔧 AIO-Specific Commands
 
@@ -335,3 +353,12 @@ After installation, verify:
 - [ ] Admin interface accessible
 
 The AIO installation provides the same functionality as standard NextCloud but with the convenience and security of containerized deployment!
+
+---
+
+## 📄 Documentation Update Summary
+
+- Node.js v16+ requirement is now clearly stated for AIO container builds.
+- One-liner install command for Node.js v16+ in containers is provided.
+- Manual frontend build command for AIO containers is documented.
+- All relevant sections updated for clarity and reproducibility.

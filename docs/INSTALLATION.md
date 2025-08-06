@@ -10,9 +10,17 @@ Before installing, verify your system meets these requirements:
 - [ ] NextCloud 25+ installed and running
 - [ ] PHP 8.0+ with required extensions
 - [ ] MySQL 5.7+ or PostgreSQL 10+
+- [ ] **Node.js v16+ installed** (required to build the Vue 3 frontend)
 - [ ] At least 512MB PHP memory limit
 - [ ] Web server with proper permissions
 - [ ] Command line access to the server
+
+> **Node.js v16+ is required to build the Vue 3 frontend.**
+> If Node.js is not present in your container, install it with:
+> ```bash
+> curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+> ```
+> Verify installation with `node -v` (should be 16.x or higher).
 
 ### System Requirements Check
 
@@ -259,6 +267,17 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 ```
 
 ## 🚨 Troubleshooting Installation Issues
+
+### Missing Node.js
+
+- **Problem**: `npm install` or frontend build fails with errors about missing Node.js or incompatible version.
+- **Solution**:
+  - Ensure Node.js v16+ is installed in your environment/container.
+  - To install Node.js v16+ in Ubuntu/Debian containers:
+    ```bash
+    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+    ```
+  - Verify with `node -v` (should be 16.x or higher).
 
 ### Common Issues and Solutions
 
@@ -714,3 +733,12 @@ If you encounter issues during installation:
 5. **Browser Console**: Check for JavaScript errors in browser developer tools
 
 Remember to include relevant log excerpts and system information when seeking support.
+
+---
+
+## 📄 Documentation Update Summary
+
+- Node.js v16+ requirement is now clearly stated as a prerequisite.
+- One-liner install command for Node.js v16+ in containers is provided.
+- Troubleshooting section updated for missing Node.js.
+- All relevant sections updated for clarity and reproducibility.

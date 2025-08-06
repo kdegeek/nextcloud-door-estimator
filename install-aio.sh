@@ -202,9 +202,50 @@ install_app() {
     
     # --- Build Vue 3 Frontend in Container ---
     print_status "Checking for Node.js and npm in container (required for frontend build)..."
+    ensure_nodejs_in_container() {
+        if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
+            return 0
+        fi
+    
+        print_warning "Node.js is required but not found in the container. Attempting automatic installation..."
+    
+        # Check if running as root in host (required for apt-get in container)
+        if [ "$EUID" -ne 0 ]; then
+            print_error "Node.js is missing in the container and this script is not running as root."
+            print_status "Please install Node.js v18 LTS manually in the container: https://nodejs.org/en/download or via your package manager."
+            exit 1
+        fi
+    
+        # Detect Debian/Ubuntu in container
+        if docker exec "$AIO_CONTAINER_NAME" test -f /etc/os-release; then
+            OS_ID=$(docker exec "$AIO_CONTAINER_NAME" sh -c ". /etc/os-release && echo \$ID")
+            OS_LIKE=$(docker exec "$AIO_CONTAINER_NAME" sh -c ". /etc/os-release && echo \$ID_LIKE")
+            if [[ "$OS_ID" == "debian" || "$OS_ID" == "ubuntu" || "$OS_LIKE" == *"debian"* ]]; then
+                print_status "Detected Debian/Ubuntu in container. Installing Node.js v18 LTS using apt-get..."
+                docker exec "$AIO_CONTAINER_NAME" apt-get update && \
+                docker exec "$AIO_CONTAINER_NAME" bash -c "curl -fsSL https://deb.nodesource.com/setup_18.x | bash -" && \
+                docker exec "$AIO_CONTAINER_NAME" apt-get install -y nodejs
+                if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
+                    print_success "Node.js v18 LTS installed successfully in the container."
+                    return 0
+                else
+                    print_error "Automatic Node.js installation failed in the container."
+                    print_status "Please install Node.js v18 LTS manually in the container: https://nodejs.org/en/download"
+                    exit 1
+                fi
+            fi
+        fi
+    
+        print_error "Node.js is missing in the container and automatic installation is only supported on Debian/Ubuntu as root."
+        print_status "Please install Node.js v18 LTS manually in the container: https://nodejs.org/en/download"
+        exit 1
+    }
+    
+    ensure_nodejs_in_container
+    
     if ! docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
         print_error "Node.js is required to build the frontend but was not found in the container."
-        print_status "Please install Node.js v16+ in the container and rerun this script, or build manually with: docker exec $AIO_CONTAINER_NAME bash -c 'cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh'"
+        print_status "Please install Node.js v18 LTS in the container and rerun this script, or build manually with: docker exec $AIO_CONTAINER_NAME bash -c 'cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh'"
         exit 1
     fi
     if ! docker exec "$AIO_CONTAINER_NAME" command -v npm >/dev/null 2>&1; then

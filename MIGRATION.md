@@ -4,6 +4,12 @@
 
 This document summarizes the migration of the Door Estimator NextCloud App frontend from React (TypeScript/TSX) to Vue 3 (Single File Components, SFCs). The migration was performed to leverage Vue's improved SFC developer experience, better integration with Nextcloud's recommended tooling, and to simplify state management and component structure.
 
+> **Note:** Building the Vue 3 frontend now requires **Node.js v16+**.
+> If Node.js is not present in your container, install it with:
+> ```bash
+> curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+> ```
+
 ---
 
 ## Migration Process
@@ -69,3 +75,11 @@ This document summarizes the migration of the Door Estimator NextCloud App front
 - Rewrote all component tests for Vue 3.
 - Removed all React and related dependencies.
 - Updated documentation to reflect the new stack.
+
+---
+
+## 📄 Documentation Update Summary
+
+- Added explicit note that Node.js v16+ is required to build the Vue 3 frontend.
+- Provided a one-liner for installing Node.js v16+ in containers.
+- Updated documentation for clarity and reproducibility.

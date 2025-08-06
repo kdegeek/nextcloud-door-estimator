@@ -23,6 +23,13 @@ A comprehensive door and hardware estimating application for NextCloud that mode
 
 ## 📋 Prerequisites
 
+- **Node.js**: Version 16 or higher is required in the container to build the Vue 3 frontend.
+  - To install Node.js v16+ in Ubuntu/Debian containers:
+    ```bash
+    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+    ```
+  - Verify installation with `node -v` (should be 16.x or higher).
+
 - **NextCloud**: Version 25 or higher
 - **PHP**: Version 8.0 or higher
 - **Database**: MySQL 5.7+ or PostgreSQL 10+
@@ -69,10 +76,17 @@ door-estimator/
 
 The Door Estimator frontend is built with **Vue 3** and **TypeScript**, using Nextcloud's official webpack config.
 
+> **Node.js v16+ is required to build the frontend.**
+> If Node.js is not present in your container, install it with:
+> ```bash
+> curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+> ```
+
 ### Setup & Build
 
 ```bash
 # 1. Install Node.js (v16+ required)
+#    (see above for install instructions if missing)
 # 2. Install dependencies
 npm install
 
@@ -208,6 +222,18 @@ sudo -u www-data php /var/www/nextcloud/occ door-estimator:import-pricing
 📖 **See [docs/PRICING_DATA_SETUP.md](docs/PRICING_DATA_SETUP.md) for complete pricing data import instructions.**
 
 🐳 **For NextCloud AIO users, see [docs/NEXTCLOUD_AIO_SETUP.md](docs/NEXTCLOUD_AIO_SETUP.md) for container-specific instructions.**
+
+---
+
+### 🐳 Manual Frontend Build in AIO Containers
+
+If you need to manually build the frontend inside a NextCloud AIO container, use:
+
+```bash
+docker exec nextcloud-aio-nextcloud bash -c 'cd /var/www/html/apps/door_estimator && sh scripts/build.sh'
+```
+
+Ensure Node.js v16+ is installed in the container before running the build script.
 
 ### Step 6: Verify Installation
 
@@ -469,15 +495,24 @@ When reporting issues, please include:
 
 Your Door Estimator app provides significant improvements over Excel:
 
-✅ **Multi-user Access** - No more file locking issues  
-✅ **Real-time Collaboration** - Multiple users can work simultaneously  
-✅ **Version Control** - Built-in quote history and audit trails  
-✅ **Mobile Access** - Works on tablets and phones  
-✅ **Automated Backups** - NextCloud handles data protection  
-✅ **API Integration** - Connect to other business systems  
-✅ **Professional PDFs** - Branded, consistent quote documents  
-✅ **Easy Price Updates** - No Excel expertise required for staff  
-✅ **Search & Reporting** - Query historical quotes and data  
-✅ **Scalability** - Handle larger datasets without performance issues  
+✅ **Multi-user Access** - No more file locking issues
+✅ **Real-time Collaboration** - Multiple users can work simultaneously
+✅ **Version Control** - Built-in quote history and audit trails
+✅ **Mobile Access** - Works on tablets and phones
+✅ **Automated Backups** - NextCloud handles data protection
+✅ **API Integration** - Connect to other business systems
+✅ **Professional PDFs** - Branded, consistent quote documents
+✅ **Easy Price Updates** - No Excel expertise required for staff
+✅ **Search & Reporting** - Query historical quotes and data
+✅ **Scalability** - Handle larger datasets without performance issues
 
 The application preserves 100% of your existing business logic while providing a modern, maintainable platform for growth.
+
+---
+
+## 📄 Documentation Update Summary
+
+- **Node.js v16+ requirement** is now clearly stated for all frontend build steps.
+- **One-liner install command** for Node.js v16+ in containers is provided.
+- **Manual frontend build command** for AIO containers is documented.
+- All relevant sections updated for clarity and reproducibility.

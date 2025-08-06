@@ -105,11 +105,52 @@ else
     print_status "No preserved pricing data to restore."
 fi
 
+# --- Node.js Auto-Install Logic ---
+ensure_nodejs() {
+    if command -v node >/dev/null 2>&1; then
+        return 0
+    fi
+
+    print_warning "Node.js is required but not found. Attempting automatic installation..."
+
+    # Check if running as root
+    if [ "$EUID" -ne 0 ]; then
+        print_error "Node.js is missing and this script is not running as root."
+        print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download or via your package manager."
+        exit 1
+    fi
+
+    # Detect Debian/Ubuntu
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        if [[ "$ID" == "debian" || "$ID" == "ubuntu" || "$ID_LIKE" == *"debian"* ]]; then
+            print_status "Detected Debian/Ubuntu. Installing Node.js v18 LTS using apt-get..."
+            apt-get update && \
+            curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+            apt-get install -y nodejs
+            if command -v node >/dev/null 2>&1; then
+                print_success "Node.js v18 LTS installed successfully."
+                return 0
+            else
+                print_error "Automatic Node.js installation failed."
+                print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download"
+                exit 1
+            fi
+        fi
+    fi
+
+    print_error "Node.js is missing and automatic installation is only supported on Debian/Ubuntu as root."
+    print_status "Please install Node.js v18 LTS manually: https://nodejs.org/en/download"
+    exit 1
+}
+
+ensure_nodejs
+
 # --- Build Vue 3 Frontend ---
 print_status "Checking for Node.js and npm (required for frontend build)..."
 if ! command -v node >/dev/null 2>&1; then
     print_error "Node.js is required to build the frontend but was not found."
-    print_status "Please install Node.js v16+ and rerun this script, or build manually with: cd $APP_DIR && sh scripts/build.sh"
+    print_status "Please install Node.js v18 LTS and rerun this script, or build manually with: cd $APP_DIR && sh scripts/build.sh"
     exit 1
 fi
 if ! command -v npm >/dev/null 2>&1; then
