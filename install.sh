@@ -158,6 +158,18 @@ if ! command -v npm >/dev/null 2>&1; then
     print_status "Please install npm and rerun this script, or build manually with: cd $APP_DIR && sh scripts/build.sh"
     exit 1
 fi
+
+# --- NPM Version Check and Guidance ---
+NPM_VERSION=$(npm --version 2>/dev/null || echo "unknown")
+NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+if [ "$NPM_MAJOR" = "10" ]; then
+    print_warning "npm version 10 detected (version: $NPM_VERSION)."
+    print_warning "Some dependencies or build tools may not be fully compatible with npm 10."
+    print_status "If you encounter build errors or unexpected issues, consider downgrading to npm 9 (npm install -g npm@9)."
+    print_status "Known issues with npm 10 include stricter peer dependency resolution and changes to the lockfile format."
+    print_status "See project documentation for details and workarounds."
+fi
+
 print_status "Building Vue 3 frontend (npm install + webpack build)..."
 cd "$APP_DIR"
 sh scripts/build.sh || { print_error "Frontend build failed. See above for details."; exit 1; }

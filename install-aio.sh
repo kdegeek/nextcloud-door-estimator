@@ -202,8 +202,39 @@ install_app() {
     
     # --- Build Vue 3 Frontend in Container ---
     print_status "Checking for Node.js and npm in container (required for frontend build)..."
+    # --- Enhanced Node.js/npm detection and debug output ---
     ensure_nodejs_in_container() {
+        print_status "Debug: \$PATH in container:"
+        docker exec "$AIO_CONTAINER_NAME" printenv PATH
+
+        print_status "Debug: which node:"
+        docker exec "$AIO_CONTAINER_NAME" which node || true
+        print_status "Debug: which nodejs:"
+        docker exec "$AIO_CONTAINER_NAME" which nodejs || true
+        print_status "Debug: which npm:"
+        docker exec "$AIO_CONTAINER_NAME" which npm || true
+
+        # Try to detect node, nodejs, and npm using both command -v and which
+        NODE_BIN=""
         if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
+            NODE_BIN="node"
+        elif docker exec "$AIO_CONTAINER_NAME" command -v nodejs >/dev/null 2>&1; then
+            NODE_BIN="nodejs"
+        elif docker exec "$AIO_CONTAINER_NAME" which node >/dev/null 2>&1; then
+            NODE_BIN="node"
+        elif docker exec "$AIO_CONTAINER_NAME" which nodejs >/dev/null 2>&1; then
+            NODE_BIN="nodejs"
+        fi
+
+        NPM_FOUND=0
+        if docker exec "$AIO_CONTAINER_NAME" command -v npm >/dev/null 2>&1; then
+            NPM_FOUND=1
+        elif docker exec "$AIO_CONTAINER_NAME" which npm >/dev/null 2>&1; then
+            NPM_FOUND=1
+        fi
+
+        if [ -n "$NODE_BIN" ] && [ "$NPM_FOUND" -eq 1 ]; then
+            print_success "Detected Node.js binary: $NODE_BIN and npm in container."
             return 0
         fi
 
@@ -262,16 +293,58 @@ install_app() {
     
     ensure_nodejs_in_container
     
-    if ! docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
-        print_error "Node.js is required to build the frontend but was not found in the container."
+    # Re-check for node/nodejs and npm after ensure_nodejs_in_container
+    NODE_BIN=""
+    if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
+        NODE_BIN="node"
+    elif docker exec "$AIO_CONTAINER_NAME" command -v nodejs >/dev/null 2>&1; then
+        NODE_BIN="nodejs"
+    elif docker exec "$AIO_CONTAINER_NAME" which node >/dev/null 2>&1; then
+        NODE_BIN="node"
+    elif docker exec "$AIO_CONTAINER_NAME" which nodejs >/dev/null 2>&1; then
+        NODE_BIN="nodejs"
+    fi
+
+    if [ -z "$NODE_BIN" ]; then
+        print_error "Node.js (node or nodejs) is required to build the frontend but was not found in the container."
+        print_status "Debug: which node:"
+        docker exec "$AIO_CONTAINER_NAME" which node || true
+        print_status "Debug: which nodejs:"
+        docker exec "$AIO_CONTAINER_NAME" which nodejs || true
+        print_status "Debug: \$PATH in container:"
+        docker exec "$AIO_CONTAINER_NAME" printenv PATH
         print_status "Please install Node.js v18 LTS in the container and rerun this script, or build manually with: docker exec $AIO_CONTAINER_NAME bash -c 'cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh'"
         exit 1
     fi
-    if ! docker exec "$AIO_CONTAINER_NAME" command -v npm >/dev/null 2>&1; then
+
+    NPM_FOUND=0
+    if docker exec "$AIO_CONTAINER_NAME" command -v npm >/dev/null 2>&1; then
+        NPM_FOUND=1
+    elif docker exec "$AIO_CONTAINER_NAME" which npm >/dev/null 2>&1; then
+        NPM_FOUND=1
+    fi
+
+    if [ "$NPM_FOUND" -ne 1 ]; then
         print_error "npm is required to build the frontend but was not found in the container."
+        print_status "Debug: which npm:"
+        docker exec "$AIO_CONTAINER_NAME" which npm || true
+        print_status "Debug: \$PATH in container:"
+        docker exec "$AIO_CONTAINER_NAME" printenv PATH
         print_status "Please install npm in the container and rerun this script, or build manually with: docker exec $AIO_CONTAINER_NAME bash -c 'cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh'"
         exit 1
     fi
+    
+    # --- NPM Version Check and Guidance (in container) ---
+    NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
+    NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+    if [ "$NPM_MAJOR" = "10" ]; then
+        print_warning "npm version 10 detected in container (version: $NPM_VERSION)."
+        print_warning "Some dependencies or build tools may not be fully compatible with npm 10."
+        print_status "If you encounter build errors or unexpected issues, consider downgrading to npm 9 (npm install -g npm@9) inside the container."
+        print_status "Known issues with npm 10 include stricter peer dependency resolution and changes to the lockfile format."
+        print_status "See project documentation for details and workarounds."
+    fi
+    
     print_status "Building Vue 3 frontend in container (npm install + webpack build)..."
     if ! docker exec "$AIO_CONTAINER_NAME" bash -c "cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh"; then
         print_error "Frontend build failed in container. See above for details."

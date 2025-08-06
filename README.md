@@ -23,6 +23,12 @@ A comprehensive door and hardware estimating application for NextCloud that mode
 
 ## 📋 Prerequisites
 
+> ⚠️ **npm 10 Compatibility Warning:**
+> If you are using **npm 10.x**, you may encounter compatibility issues with some dependencies or build tools.
+> - If you experience build errors or unexpected issues, it is recommended to downgrade to **npm 9** (`npm install -g npm@9`).
+> - Known issues with npm 10 include stricter peer dependency resolution and changes to the lockfile format.
+> - See the install scripts and documentation for details and workarounds.
+
 - **Node.js**: Version 16 or higher is required in the container to build the Vue 3 frontend.
   - To install Node.js v16+ in Ubuntu/Debian containers:
     ```bash
@@ -343,6 +349,7 @@ The app provides a comprehensive REST API:
 
 - **npm install fails**:
   - Ensure Node.js v16+ is installed (`node -v`).
+  - **If you are using npm 10.x, see the warning above. Some dependencies may not install or build correctly. Downgrade to npm 9 if you encounter issues.**
   - Delete `node_modules/` and `package-lock.json`, then run `npm install` again.
   - If you see errors about missing `webpack` or `ts-loader`, run `npm install` to restore all dependencies.
 

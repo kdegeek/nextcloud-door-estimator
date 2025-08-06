@@ -9,6 +9,12 @@ This document summarizes the migration of the Door Estimator NextCloud App front
 > ```bash
 > curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
 > ```
+>
+> ⚠️ **npm 10 Compatibility Warning:**
+> If you are using **npm 10.x**, you may encounter compatibility issues with some dependencies or build tools.
+> - If you experience build errors or unexpected issues, downgrade to **npm 9** (`npm install -g npm@9`).
+> - Known issues with npm 10 include stricter peer dependency resolution and changes to the lockfile format.
+> - See the install scripts and documentation for details and workarounds.
 
 ---
 

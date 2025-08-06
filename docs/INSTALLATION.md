@@ -11,6 +11,7 @@ Before installing, verify your system meets these requirements:
 - [ ] PHP 8.0+ with required extensions
 - [ ] MySQL 5.7+ or PostgreSQL 10+
 - [ ] **Node.js v16+ installed** (required to build the Vue 3 frontend)
+- [ ] **npm 10.x users:** ⚠️ *See warning below about compatibility issues with npm 10*
 - [ ] At least 512MB PHP memory limit
 - [ ] Web server with proper permissions
 - [ ] Command line access to the server
@@ -21,6 +22,13 @@ Before installing, verify your system meets these requirements:
 > curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
 > ```
 > Verify installation with `node -v` (should be 16.x or higher).
+>
+> ⚠️ **npm 10 Compatibility Warning:**
+> If you are using **npm 10.x**, you may encounter compatibility issues with some dependencies or build tools.
+> - If you experience build errors or unexpected issues, downgrade to **npm 9** (`npm install -g npm@9`).
+> - Known issues with npm 10 include stricter peer dependency resolution and changes to the lockfile format.
+> - The install scripts will warn you if npm 10 is detected and provide guidance.
+> - See this documentation for details and workarounds.
 
 ### System Requirements Check
 
@@ -273,6 +281,7 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 - **Problem**: `npm install` or frontend build fails with errors about missing Node.js or incompatible version.
 - **Solution**:
   - Ensure Node.js v16+ is installed in your environment/container.
+  - **If you are using npm 10.x, you may encounter compatibility issues. Downgrade to npm 9 (`npm install -g npm@9`) if you see dependency or build errors.**
   - To install Node.js v16+ in Ubuntu/Debian containers:
     ```bash
     curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs

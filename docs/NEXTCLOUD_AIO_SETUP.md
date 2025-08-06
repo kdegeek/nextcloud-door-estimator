@@ -33,6 +33,7 @@ sudo ./install-aio.sh
 - **Docker**: Installed and running
 - **NextCloud AIO**: Container running and accessible
 - **Node.js v16+**: Required in the container to build the Vue 3 frontend
+- **npm 10.x users:** ⚠️ *See warning below about compatibility issues with npm 10*
 - **User Permissions**: Root access or user in docker group
 - **Internet Access**: For downloading from GitHub
 
@@ -42,6 +43,13 @@ sudo ./install-aio.sh
 > curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
 > ```
 > Verify installation with `node -v` (should be 16.x or higher).
+>
+> ⚠️ **npm 10 Compatibility Warning:**
+> If you are using **npm 10.x** in your container, you may encounter compatibility issues with some dependencies or build tools.
+> - If you experience build errors or unexpected issues, downgrade to **npm 9** (`npm install -g npm@9`) inside the container.
+> - Known issues with npm 10 include stricter peer dependency resolution and changes to the lockfile format.
+> - The install scripts will warn you if npm 10 is detected and provide guidance.
+> - See this documentation for details and workarounds.
 
 ### Verify Your AIO Setup
 
