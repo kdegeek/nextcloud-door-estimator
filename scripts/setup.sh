@@ -219,12 +219,12 @@ check_requirements() {
     print_success "PHP version: $PHP_VERSION"
     
     # Check required PHP extensions
-    REQUIRED_EXTENSIONS="pdo json curl mbstring xml"
+    REQUIRED_EXTENSIONS="json curl mbstring xml"
     debug_trace "Checking required PHP extensions: $REQUIRED_EXTENSIONS"
     MISSING_EXTENSIONS=""
     for ext in $REQUIRED_EXTENSIONS; do
         debug_trace "Checking PHP extension: $ext"
-        if ! php -m | grep -q "^$ext$"; then
+        if ! php -m | grep -i -q "^$ext$"; then
             MISSING_EXTENSIONS="$MISSING_EXTENSIONS $ext"
         fi
     done
@@ -235,17 +235,14 @@ check_requirements() {
         exit 1
     fi
     print_success "Required PHP extensions available"
-
-    # Check for at least one common PHP PDO database driver
-    if ! php -m | grep -q "^pdo_mysql$" && ! php -m | grep -q "^pdo_pgsql$" && ! php -m | grep -q "^pdo_sqlite$"; then
+    
+    # Check for at least one common PHP PDO database driver (case-insensitive)
+    if ! php -m | grep -i -q "^pdo_mysql$" && ! php -m | grep -i -q "^pdo_pgsql$" && ! php -m | grep -i -q "^pdo_sqlite$"; then
         print_error "No PHP PDO database driver (pdo_mysql, pdo_pgsql, pdo_sqlite) is enabled."
         echo "ERROR: A PHP PDO database driver is required for Nextcloud to connect to its database."
         echo ""
-        echo "IMPORTANT: Installing only the core 'pdo' extension is NOT sufficient."
-        echo "You must install a specific PDO driver for your database backend."
-        echo ""
         echo "For Alpine Linux users:"
-        echo "  - You need to install the unversioned PDO driver packages: 'php-pdo', 'php-pdo_mysql', 'php-pdo_pgsql', or 'php-pdo_sqlite'."
+        echo "  - You need to install: 'php-pdo' and one of 'php-pdo_mysql', 'php-pdo_pgsql', or 'php-pdo_sqlite'."
         echo "  - Example for MySQL/MariaDB:    apk add php-pdo php-pdo_mysql"
         echo "  - Example for PostgreSQL:       apk add php-pdo php-pdo_pgsql"
         echo "  - Example for SQLite:           apk add php-pdo php-pdo_sqlite"
