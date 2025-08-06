@@ -200,14 +200,22 @@ check_requirements() {
 
     # Check for at least one common PHP PDO database driver
     if ! php -m | grep -q "^pdo_mysql$" && ! php -m | grep -q "^pdo_pgsql$" && ! php -m | grep -q "^pdo_sqlite$"; then
-        print_warning "No common PHP PDO database driver (pdo_mysql, pdo_pgsql, pdo_sqlite) is enabled."
-        echo "You may need to install a database driver for your Nextcloud database backend."
-        echo "For MySQL/MariaDB: "
+        print_error "No PHP PDO database driver (pdo_mysql, pdo_pgsql, pdo_sqlite) is enabled."
+        echo "A PHP PDO driver is required for Nextcloud to connect to its database."
+        echo ""
+        echo "To install a PDO driver, run the following command for your OS and database backend:"
+        echo ""
+        echo "For MySQL/MariaDB:"
         print_php_extension_instructions pdo_mysql
-        echo "For PostgreSQL: "
+        echo ""
+        echo "For PostgreSQL:"
         print_php_extension_instructions pdo_pgsql
-        echo "For SQLite: "
+        echo ""
+        echo "For SQLite:"
         print_php_extension_instructions pdo_sqlite
+        echo ""
+        echo "After installing a PDO driver, re-run this setup script."
+        exit 1
     fi
 
     # Check database connectivity
