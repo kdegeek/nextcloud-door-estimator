@@ -206,21 +206,37 @@ install_app() {
         if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
             return 0
         fi
-    
+
         print_warning "Node.js is required but not found in the container. Attempting automatic installation..."
-    
-        # Check if running as root in host (required for apt-get in container)
+
+        # Check if running as root in host (required for package install in container)
         if [ "$EUID" -ne 0 ]; then
             print_error "Node.js is missing in the container and this script is not running as root."
-            print_status "Please install Node.js v18 LTS manually in the container: https://nodejs.org/en/download or via your package manager."
+            print_status "Please install Node.js v18 LTS and npm manually in the container: https://nodejs.org/en/download or via your package manager."
             exit 1
         fi
-    
-        # Detect Debian/Ubuntu in container
+
+        # Detect OS in container
         if docker exec "$AIO_CONTAINER_NAME" test -f /etc/os-release; then
             OS_ID=$(docker exec "$AIO_CONTAINER_NAME" sh -c ". /etc/os-release && echo \$ID")
             OS_LIKE=$(docker exec "$AIO_CONTAINER_NAME" sh -c ". /etc/os-release && echo \$ID_LIKE")
-            if [[ "$OS_ID" == "debian" || "$OS_ID" == "ubuntu" || "$OS_LIKE" == *"debian"* ]]; then
+            if [[ "$OS_ID" == "alpine" ]]; then
+                print_status "Detected Alpine Linux in container. Installing Node.js and npm using apk..."
+                if docker exec "$AIO_CONTAINER_NAME" apk add --no-cache nodejs npm; then
+                    if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1 && docker exec "$AIO_CONTAINER_NAME" command -v npm >/dev/null 2>&1; then
+                        print_success "Node.js and npm installed successfully in the Alpine container."
+                        return 0
+                    else
+                        print_error "Automatic Node.js/npm installation failed in the Alpine container."
+                        print_status "Please install Node.js and npm manually in the container: https://nodejs.org/en/download"
+                        exit 1
+                    fi
+                else
+                    print_error "apk failed to install Node.js/npm in the Alpine container."
+                    print_status "Please install Node.js and npm manually in the container: https://nodejs.org/en/download"
+                    exit 1
+                fi
+            elif [[ "$OS_ID" == "debian" || "$OS_ID" == "ubuntu" || "$OS_LIKE" == *"debian"* ]]; then
                 print_status "Detected Debian/Ubuntu in container. Installing Node.js v18 LTS using apt-get..."
                 docker exec "$AIO_CONTAINER_NAME" apt-get update && \
                 docker exec "$AIO_CONTAINER_NAME" bash -c "curl -fsSL https://deb.nodesource.com/setup_18.x | bash -" && \
@@ -235,9 +251,12 @@ install_app() {
                 fi
             fi
         fi
-    
-        print_error "Node.js is missing in the container and automatic installation is only supported on Debian/Ubuntu as root."
-        print_status "Please install Node.js v18 LTS manually in the container: https://nodejs.org/en/download"
+
+        print_error "Node.js is missing in the container and automatic installation is only supported on Alpine, Debian, or Ubuntu as root."
+        print_status "Please install Node.js v18 LTS and npm manually in the container. For example:"
+        print_status "  Alpine: apk add --no-cache nodejs npm"
+        print_status "  Debian/Ubuntu: curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs"
+        print_status "Or see: https://nodejs.org/en/download"
         exit 1
     }
     
