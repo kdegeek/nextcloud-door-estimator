@@ -642,6 +642,7 @@ case "${1-}" in
         export CHECK_DB=1
         shift
         main
+        exit 0
         ;;
     --root|--nextcloud-path)
         shift
@@ -649,18 +650,21 @@ case "${1-}" in
         export NEXTCLOUD_ROOT="$NEXTCLOUD_PATH"
         shift
         main
+        exit 0
         ;;
     --app-name)
         shift
         export APP_NAME="${1-}"
         shift
         main
+        exit 0
         ;;
     --app-dir)
         shift
         export APP_DIR="${1-}"
         shift
         main
+        exit 0
         ;;
     "")
         main
@@ -671,5 +675,6 @@ case "${1-}" in
         export NEXTCLOUD_ROOT="$NEXTCLOUD_PATH"
         shift
         main
+        exit 0
         ;;
 esac
