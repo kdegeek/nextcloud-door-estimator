@@ -201,9 +201,19 @@ check_requirements() {
     # Check for at least one common PHP PDO database driver
     if ! php -m | grep -q "^pdo_mysql$" && ! php -m | grep -q "^pdo_pgsql$" && ! php -m | grep -q "^pdo_sqlite$"; then
         print_error "No PHP PDO database driver (pdo_mysql, pdo_pgsql, pdo_sqlite) is enabled."
-        echo "A PHP PDO driver is required for Nextcloud to connect to its database."
+        echo "ERROR: A PHP PDO database driver is required for Nextcloud to connect to its database."
         echo ""
-        echo "To install a PDO driver, run the following command for your OS and database backend:"
+        echo "IMPORTANT: Installing only the core 'pdo' extension is NOT sufficient."
+        echo "You must install a specific PDO driver for your database backend."
+        echo ""
+        echo "For Alpine Linux users:"
+        echo "  - You need to install the unversioned PDO driver packages: 'php-pdo', 'php-pdo_mysql', 'php-pdo_pgsql', or 'php-pdo_sqlite'."
+        echo "  - Example for MySQL/MariaDB:    apk add php-pdo php-pdo_mysql"
+        echo "  - Example for PostgreSQL:       apk add php-pdo php-pdo_pgsql"
+        echo "  - Example for SQLite:           apk add php-pdo php-pdo_sqlite"
+        echo "  - Note: If you are using a custom or non-default PHP build (e.g., php8X-*), adjust the package names accordingly."
+        echo ""
+        echo "For other OSes, run the following command for your database backend:"
         echo ""
         echo "For MySQL/MariaDB:"
         print_php_extension_instructions pdo_mysql
@@ -214,7 +224,7 @@ check_requirements() {
         echo "For SQLite:"
         print_php_extension_instructions pdo_sqlite
         echo ""
-        echo "After installing a PDO driver, re-run this setup script."
+        echo "After installing the appropriate PDO driver, re-run this setup script."
         exit 1
     fi
 
