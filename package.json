@@ -1,7 +1,7 @@
 {
   "name": "nextcloud-door-estimator",
   "version": "1.0.0",
-  "description": "A Nextcloud app frontend for door estimation, built with React and TypeScript using Nextcloud's official webpack config.",
+  "description": "A Nextcloud app frontend for door estimation, built with TypeScript and Vue using Nextcloud's official webpack config.",
   "author": "Nextcloud Community",
   "license": "AGPL-3.0-or-later",
   "private": true,
@@ -25,26 +25,25 @@
     "last 2 Edge versions",
     "last 2 Safari versions",
     "not dead",
-    "defaults",
-    "ES2020"
+    "defaults"
   ],
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "lucide-react": "^0.321.0",
     "typescript": "^5.4.0",
-    "@nextcloud/webpack-config": "^6.0.0"
+    "vue": "^3.5.18"
   },
   "devDependencies": {
-    "webpack": "^5.91.0",
-    "webpack-cli": "^5.1.4",
-    "ts-loader": "^9.5.1",
-    "@types/react": "^18.2.62",
-    "@types/react-dom": "^18.2.19",
+    "@types/jest": "^29.5.14",
+    "@vue/compiler-sfc": "^3.5.18",
+    "@vue/test-utils": "^2.4.0-alpha.2",
+    "@vue/vue3-jest": "^29.2.6",
     "jest": "^29.7.0",
+    "jest-environment-jsdom": "^30.0.5",
+    "source-map-loader": "^4.0.1",
     "ts-jest": "^29.1.1",
-    "@types/jest": "^29.5.12",
-    "source-map-loader": "^4.0.1"
+    "ts-loader": "^9.5.1",
+    "vue-loader": "^17.4.2",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
   },
   "scripts": {
     "build": "webpack --mode production --config webpack.config.js",

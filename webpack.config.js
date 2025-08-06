@@ -4,6 +4,8 @@
 const NextcloudWebpackConfig = require('@nextcloud/webpack-config');
 const path = require('path');
 
+const { VueLoaderPlugin } = require('vue-loader');
+
 /** @type {import('webpack').Configuration} */
 module.exports = (env, argv) => {
     const isDev = argv.mode === 'development';
@@ -13,36 +15,33 @@ module.exports = (env, argv) => {
         // No default entry, we override below
     });
 
-    // Custom entry points (both TSX files, bundled together)
-    baseConfig.entry = [
-        path.resolve(__dirname, 'door_estimator_webapp.tsx'),
-        path.resolve(__dirname, 'QuoteSection.tsx')
-    ];
+    // Custom entry points
+    baseConfig.entry = {
+        'door-estimator': path.resolve(__dirname, 'js', 'door-estimator.js'),
+    };
 
     // Output: single bundle
     baseConfig.output = {
-        path: path.resolve(__dirname, 'dist'),
-        filename: 'door-estimator.js',
-        publicPath: '/apps/nextcloud-door-estimator/js/', // Nextcloud app static path
+        path: path.resolve(__dirname, 'js'),
+        filename: '[name].js', // Use [name] to get 'door-estimator.js'
+        publicPath: '/apps/door_estimator/js/', // Nextcloud app static path
         clean: true
     };
 
-    // Module rules: TypeScript + React JSX
+    // Module rules: Vue + TypeScript
     baseConfig.module.rules.push(
         {
-            test: /\.(ts|tsx)$/,
-            use: [
-                {
-                    loader: 'ts-loader',
-                    options: {
-                        transpileOnly: true,
-                        compilerOptions: {
-                            jsx: 'react-jsx'
-                        }
-                    }
-                }
-            ],
-            exclude: /node_modules/
+            test: /\.vue$/,
+            loader: 'vue-loader',
+        },
+        {
+            test: /\.ts$/,
+            loader: 'ts-loader',
+            options: {
+                appendTsSuffixTo: [/\.vue$/],
+                transpileOnly: true,
+            },
+            exclude: /node_modules/,
         },
         {
             test: /\.js$/,
@@ -50,19 +49,20 @@ module.exports = (env, argv) => {
             use: ['source-map-loader']
         }
     );
+    
+    baseConfig.plugins.push(new VueLoaderPlugin());
 
-    // Resolve extensions for TS, TSX, JS, JSX
+    // Resolve extensions for TS, TSX, JS, JSX, Vue
     baseConfig.resolve = {
         ...baseConfig.resolve,
-        extensions: ['.ts', '.tsx', '.js', '.jsx', ...(baseConfig.resolve?.extensions || [])],
+        extensions: ['.ts', '.js', '.vue', ...(base.resolve?.extensions || [])],
         alias: {
             ...(baseConfig.resolve?.alias || {}),
-            // Add any Nextcloud-specific aliases here if needed
+            'vue$': 'vue/dist/vue.esm-bundler.js',
         }
     };
 
-    // Enforce devtool=false for CSP compliance: prevents use of eval/Function in build output.
-    // This disables all source maps and overrides any value from @nextcloud/webpack-config or environment variables.
+    // Enforce devtool=false for CSP compliance
     baseConfig.devtool = false;
 
     // Dev server config (for local development)
@@ -81,10 +81,6 @@ module.exports = (env, argv) => {
         headers: {
             'Access-Control-Allow-Origin': '*'
         },
-        // Proxy to Nextcloud backend if needed (uncomment and adjust as needed)
-        // proxy: {
-        //     '/apps/nextcloud-door-estimator/api': 'http://localhost:8080'
-        // }
     };
 
     return baseConfig;

@@ -2,6 +2,12 @@
 
 A comprehensive door and hardware estimating application for NextCloud that modernizes Excel-based workflows with a professional web interface.
 
+---
+
+**Note:** The frontend was migrated from React to Vue 3. See [MIGRATION.md](MIGRATION.md) for a detailed summary of the migration process, key changes, and future maintenance recommendations.
+
+---
+
 ## 🚀 Features
 
 - **Modern Web Interface**: Responsive design that works on desktop, tablet, and mobile
@@ -61,7 +67,7 @@ door-estimator/
 
 ## 🖥️ Frontend Build & Development
 
-The Door Estimator frontend is built with **React** and **TypeScript**, using Nextcloud's official webpack config.
+The Door Estimator frontend is built with **Vue 3** and **TypeScript**, using Nextcloud's official webpack config.
 
 ### Setup & Build
 
@@ -80,13 +86,13 @@ npm run build:dev
 npm start
 ```
 
-- **TypeScript**: All source code is in TypeScript (`.tsx`, `.ts`). Compilation is handled by webpack and `ts-loader`.
+- **TypeScript**: All source code is in TypeScript (`.vue`, `.ts`). Compilation is handled by webpack and `ts-loader`.
 - **Scripts**: See `package.json` for all available scripts.
 - **Output**: Compiled JS is output to `js/door-estimator.js` for Nextcloud to serve.
 
 ### Development Workflow
 
-- Edit React/TypeScript code in `src/` or `js/`.
+- Edit Vue/TypeScript code in `src/` or `js/`.
 - Use `npm run build:dev` for fast rebuilds and source maps.
 - Use `npm test` to run Jest unit tests.
 - For Nextcloud integration, ensure the app is enabled and the built JS is up to date.
@@ -320,7 +326,7 @@ The app provides a comprehensive REST API:
 
 - **Webpack build fails**:
   - Ensure all devDependencies are installed (`npm install`).
-  - Check for syntax errors in your TypeScript/React code.
+  - Check for syntax errors in your TypeScript code.
 
 - **Hot reload not working**:
   - Use `npm start` or `npm run build:dev` for development.
@@ -377,7 +383,7 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 
 We welcome contributions! To set up a development environment for either the frontend or backend:
 
-### Frontend (React/TypeScript)
+### Frontend (Vue 3/TypeScript)
 
 1. **Install Node.js v16+**
    Download from [nodejs.org](https://nodejs.org/).
@@ -398,8 +404,10 @@ We welcome contributions! To set up a development environment for either the fro
    - Start dev server: `npm start` (if supported)
 
 5. **Code style**
-   - Use TypeScript and React best practices.
+   - Use TypeScript and Vue 3 best practices.
    - Follow the structure in `src/` and `js/`.
+
+> **Note:** This project uses [Vue 3](https://vuejs.org/) with the Composition API and [@vue/test-utils](https://test-utils.vuejs.org/) v2+ for all component testing. If you are migrating from an older version, ensure all dependencies and test utilities are updated for Vue 3 compatibility.
 
 ### Backend (PHP/Nextcloud)
 

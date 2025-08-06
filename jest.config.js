@@ -2,8 +2,7 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   testMatch: [
-    '**/?(*.)+(test|spec).ts',
-    '**/?(*.)+(test|spec).tsx'
+    '**/?(*.)+(test|spec).ts'
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
@@ -13,7 +12,13 @@ module.exports = {
     '/tests/scripts/'
   ],
   moduleNameMapper: {
-    '^utils/(.*)$': '<rootDir>/utils/$1'
+    '^utils/(.*)$': '<rootDir>/utils/$1',
+    '^@/(.*)$': '<rootDir>/$1',
+    '\\.vue$': '<rootDir>/types/shims-vue.d.ts'
   },
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node']
+  transform: {
+    '^.+\\.vue$': '@vue/vue3-jest',
+    '^.+\\.ts$': 'ts-jest'
+  },
+  moduleFileExtensions: ['ts', 'js', 'json', 'vue', 'node']
 };
