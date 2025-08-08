@@ -16,6 +16,12 @@ return [
         ['name' => 'estimator#getUserQuotes', 'url' => '/api/quotes', 'verb' => 'GET'],
         ['name' => 'estimator#generateQuotePDF', 'url' => '/api/quotes/{quoteId}/pdf', 'verb' => 'GET'],
         
+        ['name' => 'estimator#deleteQuote', 'url' => '/api/quotes/{quoteId}', 'verb' => 'DELETE'],
+        ['name' => 'estimator#duplicateQuote', 'url' => '/api/quotes/{quoteId}/duplicate', 'verb' => 'POST'],
+        ['name' => 'estimator#searchPricing', 'url' => '/api/pricing/search', 'verb' => 'GET'],
+        ['name' => 'estimator#getMarkupDefaults', 'url' => '/api/markup-defaults', 'verb' => 'GET'],
+        ['name' => 'estimator#updateMarkupDefaults', 'url' => '/api/markup-defaults', 'verb' => 'POST'],
+        
         // Bulk import
         ['name' => 'estimator#importPricingData', 'url' => '/api/import', 'verb' => 'POST'],
         ['name' => 'estimator#getOnboardingStatus', 'url' => '/api/onboardingStatus', 'verb' => 'GET'],

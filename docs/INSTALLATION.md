@@ -10,25 +10,18 @@ Before installing, verify your system meets these requirements:
 - [ ] NextCloud 25+ installed and running
 - [ ] PHP 8.0+ with required extensions
 - [ ] MySQL 5.7+ or PostgreSQL 10+
-- [ ] **Node.js v16+ installed** (required to build the Vue 3 frontend)
-- [ ] **npm 10.x users:** ⚠️ *See warning below about compatibility issues with npm 10*
+- [ ] **Node.js v20+ installed** (required to build the Vue 3 + Vite frontend)
+- [ ] **npm v10+ installed**
 - [ ] At least 512MB PHP memory limit
 - [ ] Web server with proper permissions
 - [ ] Command line access to the server
 
-> **Node.js v16+ is required to build the Vue 3 frontend.**
+> **Node.js v20+ and npm v10+ are required to build the Vue 3 frontend with Vite.**
 > If Node.js is not present in your container, install it with:
 > ```bash
-> curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+> curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
 > ```
-> Verify installation with `node -v` (should be 16.x or higher).
->
-> ⚠️ **npm 10 Compatibility Warning:**
-> If you are using **npm 10.x**, you may encounter compatibility issues with some dependencies or build tools.
-> - If you experience build errors or unexpected issues, downgrade to **npm 9** (`npm install -g npm@9`).
-> - Known issues with npm 10 include stricter peer dependency resolution and changes to the lockfile format.
-> - The install scripts will warn you if npm 10 is detected and provide guidance.
-> - See this documentation for details and workarounds.
+> Verify installation with `node -v` (should be 20.x or higher) and `npm -v` (should be 10.x or higher).
 
 ### System Requirements Check
 
@@ -276,17 +269,19 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 
 ## 🚨 Troubleshooting Installation Issues
 
-### Missing Node.js
+### Vite Build Issues
 
-- **Problem**: `npm install` or frontend build fails with errors about missing Node.js or incompatible version.
+- **Problem**: `npm run build` or `npm run dev` fails with errors about missing Node.js, incompatible version, or Vite configuration.
 - **Solution**:
-  - Ensure Node.js v16+ is installed in your environment/container.
-  - **If you are using npm 10.x, you may encounter compatibility issues. Downgrade to npm 9 (`npm install -g npm@9`) if you see dependency or build errors.**
-  - To install Node.js v16+ in Ubuntu/Debian containers:
+  - Ensure Node.js v20+ and npm v10+ are installed in your environment/container.
+  - To install Node.js v20+ in Ubuntu/Debian containers:
     ```bash
-    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
     ```
-  - Verify with `node -v` (should be 16.x or higher).
+  - Verify with `node -v` (should be 20.x or higher) and `npm -v` (should be 10.x or higher).
+  - If you see Vite-specific errors, check your `vite.config.js` and ensure all required plugins are installed.
+  - For issues with hot module replacement or dev server, ensure ports are open and not blocked by firewalls.
+  - If you encounter dependency resolution errors, delete `node_modules` and `package-lock.json`, then run `npm install` again.
 
 ### Common Issues and Solutions
 
@@ -366,6 +361,14 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
   For JavaScript, ensure all npm packages are installed:
   ```bash
   npm install
+  ```
+  For Vite, build the frontend with:
+  ```bash
+  npm run build
+  ```
+  To start the Vite dev server for local development:
+  ```bash
+  npm run dev
   ```
 
 #### 11. Configuration Issues
@@ -730,6 +733,8 @@ After installation, verify these items:
 - [ ] Admin interface shows pricing categories
 - [ ] Database tables exist and contain data
 - [ ] No errors in NextCloud logs
+- [ ] Frontend build output exists in `dist/` after running `npm run build`
+- [ ] All source files are located in the `src/` directory
 
 ## 📞 Getting Help
 
@@ -747,7 +752,11 @@ Remember to include relevant log excerpts and system information when seeking su
 
 ## 📄 Documentation Update Summary
 
-- Node.js v16+ requirement is now clearly stated as a prerequisite.
-- One-liner install command for Node.js v16+ in containers is provided.
-- Troubleshooting section updated for missing Node.js.
-- All relevant sections updated for clarity and reproducibility.
+- Node.js v20+ and npm v10+ requirements are now clearly stated as prerequisites.
+- One-liner install command for Node.js v20+ in containers is provided.
+- Vite build system instructions added, replacing old build tool references.
+- Troubleshooting section updated for Vite-specific issues.
+- Verification steps updated for new `src/` structure and Vite build output.
+- Frontend build instructions now use `npm run build` and `npm run dev` (Vite).
+- Sections for ESLint and Stylelint usage added.
+- All file paths updated to reflect the new `src/` directory structure.

@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "strict": true,
     "noImplicitAny": false,
-    "allowJs": false,
+    "allowJs": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
@@ -17,9 +19,16 @@
       "./node_modules/@types",
       "./types"
     ],
-    "outDir": "js"
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ]
   },
   "include": [
+    "*.ts",
+    "*.tsx",
+    "js/**/*.ts",
     "utils/**/*.ts",
     "tests/**/*.ts",
     "**/*.vue"

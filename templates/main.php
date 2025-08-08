@@ -1,6 +1,12 @@
 <?php
-script('door_estimator', 'door-estimator');
-style('door_estimator', 'style');
+
+declare(strict_types=1);
+
+use OCP\Util;
+
+Util::addScript('door_estimator', 'door-estimator');
+Util::addStyle('door_estimator', 'style');
+
 ?>
 
 <div id="door-estimator-app" class="min-h-screen bg-gray-100">

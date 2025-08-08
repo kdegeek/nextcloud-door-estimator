@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 
 namespace OCA\DoorEstimator\Controller;
 
@@ -8,50 +10,62 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\DataResponse;
 use OCA\DoorEstimator\Service\EstimatorService;
-use OCP\ILogger;
+use Psr\Log\LoggerInterface;
+use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\AdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\OpenAPI;
 
-class EstimatorController extends Controller {
-    
-    private $estimatorService;
-    private $logger;
-    
-    public function __construct($AppName, IRequest $request, EstimatorService $estimatorService, ILogger $logger) {
+class EstimatorController extends Controller
+{
+    private EstimatorService $estimatorService;
+    private LoggerInterface $logger;
+
+    public function __construct(
+        string $AppName,
+        IRequest $request,
+        EstimatorService $estimatorService,
+        LoggerInterface $logger
+    ) {
         parent::__construct($AppName, $request);
         $this->estimatorService = $estimatorService;
         $this->logger = $logger;
     }
     
-    /**
-     * @NoAdminRequired
-     */
-    public function getAllPricingData(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api/pricing')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function getAllPricingData(): JSONResponse
+    {
         try {
             $data = $this->estimatorService->getAllPricingData();
             return new JSONResponse($data);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('getAllPricingData: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     */
-    public function getPricingByCategory(string $category): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api/pricing/{category}')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function getPricingByCategory(string $category): JSONResponse
+    {
         try {
             $data = $this->estimatorService->getPricingByCategory($category);
             return new JSONResponse($data);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('getPricingByCategory: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     * @CsrfRequired
-     */
-    public function updatePricingItem(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'POST', url: '/api/pricing')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function updatePricingItem(): JSONResponse
+    {
         try {
             $data = $this->request->getParams();
             // Input validation
@@ -64,16 +78,17 @@ class EstimatorController extends Controller {
             }
             $result = $this->estimatorService->updatePricingItem($data);
             return new JSONResponse(['success' => $result]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('updatePricingItem: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     */
-    public function lookupPrice(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'POST', url: '/api/lookup-price')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function lookupPrice(): JSONResponse
+    {
         try {
             $category = $this->request->getParam('category');
             $item = $this->request->getParam('item');
@@ -87,17 +102,17 @@ class EstimatorController extends Controller {
             }
             $price = $this->estimatorService->lookupPrice($category, $item, $frameType);
             return new JSONResponse(['price' => $price]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('lookupPrice: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     * @CsrfRequired
-     */
-    public function saveQuote(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'POST', url: '/api/quotes')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function saveQuote(): JSONResponse
+    {
         try {
             $quoteData = $this->request->getParam('quoteData');
             $markups = $this->request->getParam('markups');
@@ -115,16 +130,17 @@ class EstimatorController extends Controller {
                 'success' => true,
                 'quoteId' => $quoteId
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('saveQuote: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     */
-    public function getQuote(int $quoteId): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api/quotes/{quoteId}')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function getQuote(int $quoteId): JSONResponse
+    {
         try {
             $quote = $this->estimatorService->getQuote($quoteId);
             if ($quote) {
@@ -132,29 +148,31 @@ class EstimatorController extends Controller {
             } else {
                 return new JSONResponse(['error' => 'Quote not found'], 404);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('getQuote: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     */
-    public function getUserQuotes(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api/quotes')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function getUserQuotes(): JSONResponse
+    {
         try {
             $quotes = $this->estimatorService->getUserQuotes();
             return new JSONResponse($quotes);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('getUserQuotes: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     */
-    public function generateQuotePDF(int $quoteId): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api/quotes/{quoteId}/pdf')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function generateQuotePDF(int $quoteId): JSONResponse
+    {
         try {
             $pdfResult = $this->estimatorService->generateQuotePDF($quoteId);
             if ($pdfResult) {
@@ -166,17 +184,17 @@ class EstimatorController extends Controller {
             } else {
                 return new JSONResponse(['error' => 'Failed to generate PDF'], 500);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('generateQuotePDF: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @AdminRequired
-     * @CsrfRequired
-     */
-    public function importPricingData(): JSONResponse {
+    #[AdminRequired]
+    #[ApiRoute(verb: 'POST', url: '/api/import')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function importPricingData(): JSONResponse
+    {
         try {
             $uploadedFile = $this->request->getUploadedFile('file');
             // Input validation
@@ -228,78 +246,80 @@ class EstimatorController extends Controller {
                 'imported' => $result['imported'],
                 'errors' => $result['errors']
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('importPricingData: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     * @CsrfRequired
-     */
-    public function deleteQuote(int $quoteId): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(url: '/api/quotes/{quoteId}', verb: 'DELETE')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function deleteQuote(int $quoteId): JSONResponse
+    {
         try {
             $result = $this->estimatorService->deleteQuote($quoteId);
             return new JSONResponse(['success' => $result]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('deleteQuote: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     * @CsrfRequired
-     */
-    public function duplicateQuote(int $quoteId): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(url: '/api/quotes/{quoteId}/duplicate', verb: 'POST')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function duplicateQuote(int $quoteId): JSONResponse
+    {
         try {
             $newQuoteId = $this->estimatorService->duplicateQuote($quoteId);
             return new JSONResponse([
                 'success' => true,
                 'newQuoteId' => $newQuoteId
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('duplicateQuote: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     */
-    public function searchPricing(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(url: '/api/pricing/search', verb: 'GET')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function searchPricing(): JSONResponse
+    {
         try {
             $query = $this->request->getParam('query');
             $category = $this->request->getParam('category');
             $limit = (int)($this->request->getParam('limit') ?? 50);
-            
+
             $results = $this->estimatorService->searchPricing($query, $category, $limit);
             return new JSONResponse($results);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('searchPricing: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired  
-     */
-    public function getMarkupDefaults(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(url: '/api/markup-defaults', verb: 'GET')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function getMarkupDefaults(): JSONResponse
+    {
         try {
             $markups = $this->estimatorService->getDefaultMarkups();
             return new JSONResponse($markups);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('getMarkupDefaults: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
     
-    /**
-     * @NoAdminRequired
-     * @CsrfRequired
-     */
-    public function updateMarkupDefaults(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(url: '/api/markup-defaults', verb: 'POST')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function updateMarkupDefaults(): JSONResponse
+    {
         try {
             $markups = $this->request->getParam('markups');
             // Input validation
@@ -308,19 +328,20 @@ class EstimatorController extends Controller {
             }
             $result = $this->estimatorService->updateDefaultMarkups($markups);
             return new JSONResponse(['success' => $result]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('updateMarkupDefaults: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }
     }
-    /**
-     * @NoAdminRequired
-     */
-    public function getOnboardingStatus(): JSONResponse {
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api/onboardingStatus')]
+    #[OpenAPI(tags: ['estimator'])]
+    public function getOnboardingStatus(): JSONResponse
+    {
         try {
             $hasPricing = $this->estimatorService->isPricingDataPresent();
             return new JSONResponse(['onboardingRequired' => !$hasPricing]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('getOnboardingStatus: ' . $e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Server error'], 500);
         }

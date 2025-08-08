@@ -23,18 +23,15 @@ A comprehensive door and hardware estimating application for NextCloud that mode
 
 ## 📋 Prerequisites
 
-> ⚠️ **npm 10 Compatibility Warning:**
-> If you are using **npm 10.x**, you may encounter compatibility issues with some dependencies or build tools.
-> - If you experience build errors or unexpected issues, it is recommended to downgrade to **npm 9** (`npm install -g npm@9`).
-> - Known issues with npm 10 include stricter peer dependency resolution and changes to the lockfile format.
-> - See the install scripts and documentation for details and workarounds.
-
-- **Node.js**: Version 16 or higher is required in the container to build the Vue 3 frontend.
-  - To install Node.js v16+ in Ubuntu/Debian containers:
+- **Node.js**: Version 20 or higher is required to build and run the frontend.
+  - To install Node.js v20+ in Ubuntu/Debian containers:
     ```bash
-    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
     ```
-  - Verify installation with `node -v` (should be 16.x or higher).
+  - Verify installation with `node -v` (should be 20.x or higher).
+
+- **npm**: Version 10 or higher is required.
+  - Verify installation with `npm -v` (should be 10.x or higher).
 
 - **NextCloud**: Version 25 or higher
 - **PHP**: Version 8.0 or higher
@@ -49,9 +46,9 @@ A comprehensive door and hardware estimating application for NextCloud that mode
 door-estimator/
 ├── appinfo/
 │   ├── info.xml                 # App metadata and dependencies
-│   ├── routes.php              # API route definitions
-│   ├── app.php                 # App bootstrap
-│   └── database.xml            # Database schema
+│   ├── routes.php               # API route definitions
+│   ├── app.php                  # App bootstrap
+│   └── database.xml             # Database schema
 ├── lib/
 │   ├── Controller/
 │   │   ├── EstimatorController.php  # Main API controller
@@ -62,36 +59,35 @@ door-estimator/
 │   │   └── Version001000Date20250124000000.php  # DB migration
 │   └── Command/
 │       └── ImportPricingData.php    # Data import command
+├── src/
+│   ├── App.vue                  # Root Vue component
+│   └── main.js                  # Frontend entry point
 ├── templates/
-│   └── main.php                # Main app template
-├── js/
-│   └── door-estimator.js       # Frontend JavaScript
-├── css/
-│   └── style.css               # Application styles
+│   └── main.php                 # Main app template
 ├── scripts/
-│   ├── extract_excel_python.py     # Excel data extraction
-│   ├── extracted_pricing_data.json # Extracted data
-│   └── pricing_data_import.sql     # SQL import script
-├── composer.json               # PHP dependencies
-└── README.md                   # This file
+│   ├── extract_excel_python.py      # Excel data extraction
+│   ├── extracted_pricing_data.json  # Extracted data
+│   └── pricing_data_import.sql      # SQL import script
+├── composer.json                # PHP dependencies
+└── README.md                    # This file
 ```
 
 ---
 
 ## 🖥️ Frontend Build & Development
 
-The Door Estimator frontend is built with **Vue 3** and **TypeScript**, using Nextcloud's official webpack config.
+The Door Estimator frontend is built with **Vue 3** and **TypeScript**, using Nextcloud's official Vite config.
 
-> **Node.js v16+ is required to build the frontend.**
+> **Node.js v20+ and npm v10+ are required to build the frontend.**
 > If Node.js is not present in your container, install it with:
 > ```bash
-> curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+> curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
 > ```
 
 ### Setup & Build
 
 ```bash
-# 1. Install Node.js (v16+ required)
+# 1. Install Node.js (v20+ required)
 #    (see above for install instructions if missing)
 # 2. Install dependencies
 npm install
@@ -100,24 +96,46 @@ npm install
 npm run build
 
 # 4. For development (with hot reload)
-npm run build:dev
+npm run dev
 
-# 5. Start local dev server (if supported)
-npm start
+# 5. Watch for changes (optional)
+npm run watch
 ```
 
-- **TypeScript**: All source code is in TypeScript (`.vue`, `.ts`). Compilation is handled by webpack and `ts-loader`.
+- **TypeScript**: All source code is in TypeScript (`.vue`, `.ts`). Compilation is handled by Vite.
 - **Scripts**: See `package.json` for all available scripts.
 - **Output**: Compiled JS is output to `js/door-estimator.js` for Nextcloud to serve.
 
 ### Development Workflow
 
-- Edit Vue/TypeScript code in `src/` or `js/`.
-- Use `npm run build:dev` for fast rebuilds and source maps.
+- Edit Vue/TypeScript code in `src/`.
+- Use `npm run dev` for fast rebuilds and source maps.
 - Use `npm test` to run Jest unit tests.
 - For Nextcloud integration, ensure the app is enabled and the built JS is up to date.
 
 See [`docs/INSTALLATION.md`](docs/INSTALLATION.md:1) for full environment setup.
+
+---
+
+## 🧹 Linting
+
+The project uses **ESLint** and **Stylelint** for code quality and style enforcement.
+
+- **ESLint**: Lints TypeScript and Vue files.
+  - Run: `npm run lint`
+  - Config: See `.eslintrc.cjs` and `@nextcloud/eslint-config`
+- **Stylelint**: Lints styles in Vue, SCSS, and CSS files.
+  - Run: `npm run stylelint`
+  - Config: See `stylelint.config.cjs` and `@nextcloud/stylelint-config`
+
+## 🧪 Testing
+
+Automated tests are provided using **Jest** and **Vue Test Utils**.
+
+- **Unit tests**: Located in `tests/frontend/`
+- **Run all tests**: `npm test`
+- **Config**: See `jest.config.js`, `ts-jest`, and `@vue/test-utils`
+- **Coverage**: Jest provides coverage reports for frontend logic.
 
 ---
 
@@ -348,21 +366,19 @@ The app provides a comprehensive REST API:
 **Frontend/Build Issues**
 
 - **npm install fails**:
-  - Ensure Node.js v16+ is installed (`node -v`).
-  - **If you are using npm 10.x, see the warning above. Some dependencies may not install or build correctly. Downgrade to npm 9 if you encounter issues.**
+  - Ensure Node.js v20+ and npm v10+ are installed (`node -v`, `npm -v`).
   - Delete `node_modules/` and `package-lock.json`, then run `npm install` again.
-  - If you see errors about missing `webpack` or `ts-loader`, run `npm install` to restore all dependencies.
 
 - **TypeScript compilation errors**:
-  - Run `npm run build:dev` to see detailed error output.
+  - Run `npm run dev` to see detailed error output.
   - Check `tsconfig.json` for correct settings.
 
-- **Webpack build fails**:
+- **Vite build fails**:
   - Ensure all devDependencies are installed (`npm install`).
   - Check for syntax errors in your TypeScript code.
 
 - **Hot reload not working**:
-  - Use `npm start` or `npm run build:dev` for development.
+  - Use `npm run dev` for development.
   - Ensure your browser is not caching old JS.
 
 **Backend/PHP Issues**
