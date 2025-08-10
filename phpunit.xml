@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    bootstrap="vendor/autoload.php"
+    colors="true"
+    strict="true"
+    verbose="true"
+    cacheResult="true"
+    beStrictAboutDeprecations="true"
+    beStrictAboutTestsThatDoNotTestAnything="true"
+    beStrictAboutOutputDuringTests="true"
+    beStrictAboutResourceUsageDuringSmallTests="true"
+    failOnRisky="true"
+    failOnWarning="true"
+    executionOrder="random"
+    stopOnFailure="false"
+    stopOnError="false"
+    stopOnWarning="false"
+    stopOnRisky="false"
+    stopOnIncomplete="false"
+    stopOnSkipped="false"
+    timeoutForSmallTests="10"
+    timeoutForMediumTests="60"
+    timeoutForLargeTests="300"
+    memoryLimit="512M"
+>
+    <testsuites>
+        <testsuite name="DoorEstimator">
+            <directory suffix="Test.php">tests/</directory>
+        </testsuite>
+    </testsuites>
+
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory>lib/</directory>
+        </include>
+        <exclude>
+            <directory>vendor/</directory>
+            <directory>reference/</directory>
+            <directory>tests/</directory>
+        </exclude>
+        <report>
+            <html output="tests/coverage/" lowUpperBound="90" highLowerBound="90"/>
+            <xml output="tests/coverage/coverage.xml"/>
+            <text output="tests/coverage/coverage.txt"/>
+        </report>
+        <threshold>
+            <statements>90</statements>
+            <branches>90</branches>
+            <functions>90</functions>
+            <lines>90</lines>
+        </threshold>
+    </coverage>
+
+    <logging>
+        <junit output="tests/coverage/junit.xml"/>
+        <testdoxHtml output="tests/coverage/testdox.html"/>
+        <testdoxText output="tests/coverage/testdox.txt"/>
+        <coverageHtml output="tests/coverage/"/>
+        <coverageXml output="tests/coverage/coverage.xml"/>
+        <coverageText output="tests/coverage/coverage.txt"/>
+    </logging>
+
+    <resultCache enabled="true" directory="tests/coverage/cache"/>
+</phpunit>

@@ -7,6 +7,7 @@ dist/
 build/
 out/
 coverage/
+/tests/coverage/
 js/*.js
 js/*.js.map
 js/*.d.ts
@@ -31,12 +32,17 @@ Thumbs.db
 *.swp
 *~
 *.tmp
+/tests/tmp/
+/tests/fixtures/uploads/
 
 # Cache and temp
 .cache/
 cache/
 tmp/
 *.log
+/.phpunit.result.cache
+/clover.xml
+/phpunit.xml.dist
 
 # Environment and secrets
 .env

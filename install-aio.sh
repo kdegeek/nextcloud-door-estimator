@@ -206,47 +206,70 @@ install_app() {
     ensure_nodejs_in_container() {
         print_status "Debug: \$PATH in container:"
         docker exec "$AIO_CONTAINER_NAME" printenv PATH
-
+    
         print_status "Debug: which node:"
         docker exec "$AIO_CONTAINER_NAME" which node || true
         print_status "Debug: which nodejs:"
         docker exec "$AIO_CONTAINER_NAME" which nodejs || true
         print_status "Debug: which npm:"
         docker exec "$AIO_CONTAINER_NAME" which npm || true
-
+    
         # Try to detect node, nodejs, and npm using both command -v and which
         NODE_BIN=""
+        NODE_VERSION=""
         if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
             NODE_BIN="node"
+            NODE_VERSION=$(docker exec "$AIO_CONTAINER_NAME" node --version | sed 's/v//')
         elif docker exec "$AIO_CONTAINER_NAME" command -v nodejs >/dev/null 2>&1; then
             NODE_BIN="nodejs"
+            NODE_VERSION=$(docker exec "$AIO_CONTAINER_NAME" nodejs --version | sed 's/v//')
         elif docker exec "$AIO_CONTAINER_NAME" which node >/dev/null 2>&1; then
             NODE_BIN="node"
+            NODE_VERSION=$(docker exec "$AIO_CONTAINER_NAME" node --version | sed 's/v//')
         elif docker exec "$AIO_CONTAINER_NAME" which nodejs >/dev/null 2>&1; then
             NODE_BIN="nodejs"
+            NODE_VERSION=$(docker exec "$AIO_CONTAINER_NAME" nodejs --version | sed 's/v//')
         fi
-
+    
         NPM_FOUND=0
+        NPM_VERSION=""
         if docker exec "$AIO_CONTAINER_NAME" command -v npm >/dev/null 2>&1; then
             NPM_FOUND=1
+            NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
         elif docker exec "$AIO_CONTAINER_NAME" which npm >/dev/null 2>&1; then
             NPM_FOUND=1
+            NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
         fi
-
-        if [ -n "$NODE_BIN" ] && [ "$NPM_FOUND" -eq 1 ]; then
-            print_success "Detected Node.js binary: $NODE_BIN and npm in container."
+    
+        NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+        NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+    
+        if [ -n "$NODE_BIN" ] && [ "$NPM_FOUND" -eq 1 ] && [ "$NODE_MAJOR" -ge 20 ] && [ "$NPM_MAJOR" -ge 10 ]; then
+            print_success "Detected Node.js binary: $NODE_BIN (v$NODE_VERSION) and npm (v$NPM_VERSION) in container."
             return 0
         fi
-
-        print_warning "Node.js is required but not found in the container. Attempting automatic installation..."
-
+    
+        if [ -n "$NODE_BIN" ] && [ "$NODE_MAJOR" -lt 20 ]; then
+            print_error "Node.js version $NODE_VERSION detected in container. Node.js v20+ is required."
+            print_status "Please upgrade Node.js in the container to v20 or newer: https://nodejs.org/en/download"
+            exit 1
+        fi
+    
+        if [ "$NPM_FOUND" -eq 1 ] && [ "$NPM_MAJOR" -lt 10 ]; then
+            print_error "npm version $NPM_VERSION detected in container. npm v10+ is required."
+            print_status "Please upgrade npm in the container to v10 or newer: https://www.npmjs.com/get-npm"
+            exit 1
+        fi
+    
+        print_warning "Node.js v20+ and npm v10+ are required but not found in the container. Attempting automatic installation..."
+    
         # Check if running as root in host (required for package install in container)
         if [ "$EUID" -ne 0 ]; then
             print_error "Node.js is missing in the container and this script is not running as root."
-            print_status "Please install Node.js v18 LTS and npm manually in the container: https://nodejs.org/en/download or via your package manager."
+            print_status "Please install Node.js v20+ and npm v10+ manually in the container: https://nodejs.org/en/download or via your package manager."
             exit 1
         fi
-
+    
         # Detect OS in container
         if docker exec "$AIO_CONTAINER_NAME" test -f /etc/os-release; then
             OS_ID=$(docker exec "$AIO_CONTAINER_NAME" sh -c ". /etc/os-release && echo \$ID")
@@ -255,38 +278,58 @@ install_app() {
                 print_status "Detected Alpine Linux in container. Installing Node.js and npm using apk..."
                 if docker exec "$AIO_CONTAINER_NAME" apk add --no-cache nodejs npm; then
                     if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1 && docker exec "$AIO_CONTAINER_NAME" command -v npm >/dev/null 2>&1; then
-                        print_success "Node.js and npm installed successfully in the Alpine container."
-                        return 0
+                        NODE_VERSION=$(docker exec "$AIO_CONTAINER_NAME" node --version | sed 's/v//')
+                        NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+                        NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
+                        NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+                        if [ "$NODE_MAJOR" -ge 20 ] && [ "$NPM_MAJOR" -ge 10 ]; then
+                            print_success "Node.js v20+ and npm v10+ installed successfully in the Alpine container."
+                            return 0
+                        else
+                            print_error "Automatic Node.js/npm installation failed or installed versions are too old."
+                            print_status "Please install Node.js v20+ and npm v10+ manually in the container: https://nodejs.org/en/download"
+                            exit 1
+                        fi
                     else
                         print_error "Automatic Node.js/npm installation failed in the Alpine container."
-                        print_status "Please install Node.js and npm manually in the container: https://nodejs.org/en/download"
+                        print_status "Please install Node.js v20+ and npm v10+ manually in the container: https://nodejs.org/en/download"
                         exit 1
                     fi
                 else
                     print_error "apk failed to install Node.js/npm in the Alpine container."
-                    print_status "Please install Node.js and npm manually in the container: https://nodejs.org/en/download"
+                    print_status "Please install Node.js v20+ and npm v10+ manually in the container: https://nodejs.org/en/download"
                     exit 1
                 fi
             elif [[ "$OS_ID" == "debian" || "$OS_ID" == "ubuntu" || "$OS_LIKE" == *"debian"* ]]; then
-                print_status "Detected Debian/Ubuntu in container. Installing Node.js v18 LTS using apt-get..."
+                print_status "Detected Debian/Ubuntu in container. Installing Node.js v20 LTS using apt-get..."
                 docker exec "$AIO_CONTAINER_NAME" apt-get update && \
-                docker exec "$AIO_CONTAINER_NAME" bash -c "curl -fsSL https://deb.nodesource.com/setup_18.x | bash -" && \
+                docker exec "$AIO_CONTAINER_NAME" bash -c "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -" && \
                 docker exec "$AIO_CONTAINER_NAME" apt-get install -y nodejs
                 if docker exec "$AIO_CONTAINER_NAME" command -v node >/dev/null 2>&1; then
-                    print_success "Node.js v18 LTS installed successfully in the container."
-                    return 0
+                    NODE_VERSION=$(docker exec "$AIO_CONTAINER_NAME" node --version | sed 's/v//')
+                    NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+                    NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
+                    NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+                    if [ "$NODE_MAJOR" -ge 20 ] && [ "$NPM_MAJOR" -ge 10 ]; then
+                        print_success "Node.js v20+ and npm v10+ installed successfully in the container."
+                        return 0
+                    else
+                        print_error "Automatic Node.js/npm installation failed or installed versions are too old."
+                        print_status "Please install Node.js v20+ and npm v10+ manually in the container: https://nodejs.org/en/download"
+                        exit 1
+                    fi
                 else
                     print_error "Automatic Node.js installation failed in the container."
-                    print_status "Please install Node.js v18 LTS manually in the container: https://nodejs.org/en/download"
+                    print_status "Please install Node.js v20+ manually in the container: https://nodejs.org/en/download"
                     exit 1
                 fi
             fi
         fi
-
-        print_error "Node.js is missing in the container and automatic installation is only supported on Alpine, Debian, or Ubuntu as root."
-        print_status "Please install Node.js v18 LTS and npm manually in the container. For example:"
+    
+        print_error "Node.js v20+ and npm v10+ are missing in the container and automatic installation is only supported on Alpine, Debian, or Ubuntu as root."
+        print_status "Please install Node.js v20+ and npm v10+ manually in the container. For example:"
         print_status "  Alpine: apk add --no-cache nodejs npm"
-        print_status "  Debian/Ubuntu: curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs"
+        print_status "  Debian/Ubuntu: curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs"
         print_status "Or see: https://nodejs.org/en/download"
         exit 1
     }
@@ -345,6 +388,21 @@ install_app() {
         print_status "See project documentation for details and workarounds."
     fi
     
+    print_status "Checking for Node.js v20+ and npm v10+ in container (required for frontend build)..."
+    NODE_VERSION=$(docker exec "$AIO_CONTAINER_NAME" node --version | sed 's/v//')
+    NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+    NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
+    NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+    if [ "$NODE_MAJOR" -lt 20 ]; then
+        print_error "Node.js version $NODE_VERSION detected in container. Node.js v20+ is required."
+        print_status "Please upgrade Node.js in the container to v20 or newer: https://nodejs.org/en/download"
+        exit 1
+    fi
+    if [ "$NPM_MAJOR" -lt 10 ]; then
+        print_error "npm version $NPM_VERSION detected in container. npm v10+ is required."
+        print_status "Please upgrade npm in the container to v10 or newer: https://www.npmjs.com/get-npm"
+        exit 1
+    fi
     print_status "Building Vue 3 frontend in container (npm install + webpack build)..."
     if ! docker exec "$AIO_CONTAINER_NAME" bash -c "cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh"; then
         print_error "Frontend build failed in container. See above for details."
@@ -386,16 +444,18 @@ set_permissions() {
 # Function to install dependencies
 install_dependencies() {
     print_status "All PHP dependencies are already bundled in the vendor/ directory."
-    print_status "Advanced PDF features are always available—no additional setup required."
+    print_status "You do NOT need to run composer install. Advanced PDF features are always available—no additional setup required."
     
-    # Install Python dependencies if available
-    if docker exec "$AIO_CONTAINER_NAME" which python3 >/dev/null 2>&1 && docker exec "$AIO_CONTAINER_NAME" which pip3 >/dev/null 2>&1; then
-        if docker exec "$AIO_CONTAINER_NAME" test -f "/var/www/html/apps/$APP_NAME/requirements.txt"; then
-            print_status "Installing Python dependencies..."
-            docker exec "$AIO_CONTAINER_NAME" pip3 install pandas openpyxl >/dev/null 2>&1 || {
+    # Python is NOT required for runtime. Python dependencies will only be installed if requirements.txt is present.
+    if docker exec "$AIO_CONTAINER_NAME" test -f "/var/www/html/apps/$APP_NAME/requirements.txt"; then
+        if docker exec "$AIO_CONTAINER_NAME" which python3 >/dev/null 2>&1 && docker exec "$AIO_CONTAINER_NAME" which pip3 >/dev/null 2>&1; then
+            print_status "Installing Python dependencies from requirements.txt..."
+            docker exec "$AIO_CONTAINER_NAME" pip3 install -r /var/www/html/apps/$APP_NAME/requirements.txt >/dev/null 2>&1 || {
                 print_warning "Some Python dependencies may not have installed"
             }
         fi
+    else
+        print_status "No requirements.txt found. Python is NOT required for runtime."
     fi
 }
 
@@ -432,11 +492,13 @@ import_data() {
     else
         print_warning "No pricing data file found"
         print_status "To import your pricing data:"
-        print_status "1. Copy your pricing file to the container:"
+        print_status "1. Download a sample pricing data file from the project repository:"
+        print_status "   wget https://raw.githubusercontent.com/kdegeek/nextcloud-door-estimator/main/scripts/extracted_pricing_data.json -O /var/www/html/apps/$APP_NAME/scripts/extracted_pricing_data.json"
+        print_status "2. Or copy your own pricing file to the container:"
         print_status "   docker cp extracted_pricing_data.json $AIO_CONTAINER_NAME:/var/www/html/apps/$APP_NAME/scripts/"
-        print_status "2. Set permissions:"
+        print_status "3. Set permissions:"
         print_status "   docker exec $AIO_CONTAINER_NAME chown www-data:www-data /var/www/html/apps/$APP_NAME/scripts/extracted_pricing_data.json"
-        print_status "3. Import the data:"
+        print_status "4. Import the data:"
         print_status "   docker exec -u www-data $AIO_CONTAINER_NAME php /var/www/html/occ door-estimator:import-pricing"
     fi
 }

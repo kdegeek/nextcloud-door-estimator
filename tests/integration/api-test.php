@@ -37,13 +37,177 @@ final class DoorEstimatorApiIntegrationTest extends WebTestCase
 
     public function testGetAllPricingDataEmpty(): void
     {
+        $start = microtime(true);
         $response = $this->client->request('GET', '/api/pricing', [
             'auth_basic' => [self::$userUser, self::$userPass]
         ]);
+        $duration = microtime(true) - $start;
+        $this->assertLessThan(1.0, $duration, 'Response time for empty DB should be <1s');
         $this->assertEquals(200, $response->getStatusCode());
         $json = json_decode($response->getContent(), true);
         $this->assertIsArray($json);
         $this->assertEmpty($json);
+        $this->assertJsonStringEqualsJsonString(json_encode([]), $response->getContent());
+        $this->assertEquals('application/json', $response->getHeaderLine('Content-Type'));
+    }
+
+    /**
+     * @dataProvider largePricingDataProvider
+     */
+    public function testGetAllPricingDataLarge($largeData): void
+    {
+        // Insert large pricing data via updatePricingItem
+        foreach ($largeData as $item) {
+            $response = $this->client->request('POST', '/api/pricing', [
+                'auth_basic' => [self::$userUser, self::$userPass],
+                'json' => $item
+            ]);
+            $this->assertEquals(200, $response->getStatusCode());
+        }
+        $start = microtime(true);
+        $response = $this->client->request('GET', '/api/pricing', [
+            'auth_basic' => [self::$userUser, self::$userPass]
+        ]);
+        $duration = microtime(true) - $start;
+        $this->assertLessThan(2.0, $duration, 'Response time for large dataset should be <2s');
+        $json = json_decode($response->getContent(), true);
+        $this->assertIsArray($json);
+        $this->assertCount(count($largeData), array_merge(...array_values($json)));
+    }
+
+    public static function largePricingDataProvider(): array
+    {
+        $items = [];
+        for ($i = 0; $i < 100; $i++) {
+            $items[] = [
+                'item' => "BulkItem$i",
+                'price' => 10 + $i,
+                'category' => 'bulk',
+                'stock_status' => 'stock',
+                'description' => "Bulk item $i"
+            ];
+        }
+    
+        return [[$items]];
+    }
+
+    /**
+     * @dataProvider sqliXssPayloadProvider
+     */
+    public function testUpdatePricingItemSecurity($payload): void
+    {
+        $response = $this->client->request('POST', '/api/pricing', [
+            'auth_basic' => [self::$userUser, self::$userPass],
+            'json' => $payload
+        ]);
+        $this->assertEquals(400, $response->getStatusCode(), 'Should reject SQLi/XSS payload');
+        $json = json_decode($response->getContent(), true);
+        $this->assertStringContainsString('Invalid', $json['error']);
+    }
+
+    public static function sqliXssPayloadProvider(): array
+    {
+        return [[
+            ['item' => "'; DROP TABLE pricing; --", 'price' => 100, 'category' => 'doors'],
+            ['item' => "<script>alert(1)</script>", 'price' => 100, 'category' => 'doors'],
+            ['item' => "Test Door", 'price' => 100, 'category' => "<img src=x onerror=alert(1)>"]
+        ]];
+    }
+
+    public function testUpdatePricingItemDuplicate(): void
+    {
+        $data = [
+            'item' => 'Duplicate Door',
+            'price' => 200,
+            'category' => 'doors',
+            'stock_status' => 'stock',
+            'description' => 'First insert'
+        ];
+        $response1 = $this->client->request('POST', '/api/pricing', [
+            'auth_basic' => [self::$userUser, self::$userPass],
+            'json' => $data
+        ]);
+        $this->assertEquals(200, $response1->getStatusCode());
+        $response2 = $this->client->request('POST', '/api/pricing', [
+            'auth_basic' => [self::$userUser, self::$userPass],
+            'json' => $data
+        ]);
+        // Should handle duplicate gracefully (either update or error)
+        $this->assertContains($response2->getStatusCode(), [200, 409]);
+    }
+
+    public function testUpdatePricingItemConcurrent(): void
+    {
+        $data = [
+            'item' => 'Concurrent Door',
+            'price' => 300,
+            'category' => 'doors',
+            'stock_status' => 'stock',
+            'description' => 'Concurrent test'
+        ];
+        $responses = [];
+        $client = $this->client;
+        // Simulate 5 concurrent updates
+        foreach (range(1, 5) as $i) {
+            $responses[] = $client->request('POST', '/api/pricing', [
+                'auth_basic' => [self::$userUser, self::$userPass],
+                'json' => array_merge($data, ['price' => 300 + $i])
+            ]);
+        }
+        foreach ($responses as $response) {
+            $this->assertEquals(200, $response->getStatusCode());
+        }
+        // Check final state
+        $getResp = $client->request('GET', '/api/pricing/doors', [
+            'auth_basic' => [self::$userUser, self::$userPass]
+        ]);
+        $json = json_decode($getResp->getContent(), true);
+        $found = false;
+        foreach ($json as $item) {
+            if ($item['item'] === 'Concurrent Door') {
+                $found = true;
+                $this->assertGreaterThanOrEqual(301, $item['price']);
+            }
+}
+        $this->assertTrue($found, 'Concurrent Door not found after concurrent updates');
+    }
+
+    /**
+     * @dataProvider malformedPricingDataProvider
+     */
+    public function testGetAllPricingDataMalformed($malformedData): void
+    {
+        // Insert malformed pricing data
+        foreach ($malformedData as $item) {
+            $response = $this->client->request('POST', '/api/pricing', [
+                'auth_basic' => [self::$userUser, self::$userPass],
+                'json' => $item
+            ]);
+            // Should return 400 for invalid input
+            $this->assertEquals(400, $response->getStatusCode());
+        }
+        $response = $this->client->request('GET', '/api/pricing', [
+            'auth_basic' => [self::$userUser, self::$userPass]
+        ]);
+        $json = json_decode($response->getContent(), true);
+        // Should not contain malformed items
+        foreach ($json as $cat => $items) {
+            foreach ($items as $item) {
+                $this->assertNotEquals('', $item['item']);
+                $this->assertIsNumeric($item['price']);
+            }
+        }
+    }
+
+    public static function malformedPricingDataProvider(): array
+    {
+        return [[
+            [
+                ['item' => '', 'price' => 10, 'category' => 'bulk'],
+                ['item' => 'Valid', 'price' => 'not-a-number', 'category' => 'bulk'],
+                ['item' => 'Valid', 'price' => 10, 'category' => '']
+            ]
+        ]];
     }
 
     public function testUpdatePricingItemSuccess(): void
@@ -162,6 +326,56 @@ final class DoorEstimatorApiIntegrationTest extends WebTestCase
         $this->assertEquals('Invalid input data', $json['error']);
     }
 
+    /**
+     * @dataProvider lookupPriceEdgeProvider
+     */
+    public function testLookupPriceEdgeCases($category, $item, $frameType, $expectedStatus, $expectedPrice): void
+    {
+        $data = [
+            'category' => $category,
+            'item' => $item,
+            'frameType' => $frameType
+        ];
+        $response = $this->client->request('POST', '/api/lookup-price', [
+            'auth_basic' => [self::$userUser, self::$userPass],
+            'json' => $data
+        ]);
+        $this->assertEquals($expectedStatus, $response->getStatusCode());
+        $json = json_decode($response->getContent(), true);
+        if ($expectedStatus === 200) {
+            $this->assertIsNumeric($json['price']);
+            if ($expectedPrice !== null) {
+                $this->assertEquals($expectedPrice, $json['price']);
+            }
+        } else {
+            $this->assertArrayHasKey('error', $json);
+        }
+    }
+
+    public static function lookupPriceEdgeProvider(): array
+    {
+        return [
+            // Case variations
+            ['doors', 'Test Door', null, 200, 123.45],
+            ['DOORS', 'TEST DOOR', null, 200, 123.45],
+            ['doors', 'test door', null, 200, 123.45],
+            // Special characters
+            ['doors', 'Test@Door#$', null, 400, null],
+            ['doors', 'Test Door', 'Steel', 200, 123.45],
+            ['doors', 'Test Door', '', 200, 123.45],
+            // FrameType edge cases
+            ['doors', 'Test Door', str_repeat('A', 256), 400, null],
+            // Boundary: empty/null
+            ['', 'Test Door', null, 400, null],
+            ['doors', '', null, 400, null],
+            [null, 'Test Door', null, 400, null],
+            ['doors', null, null, 400, null],
+            // Wrong types
+            [[], 'Test Door', null, 400, null],
+            ['doors', [], null, 400, null],
+        ];
+    }
+
     public function testSaveQuoteSuccess(): void
     {
         $data = [
@@ -201,6 +415,58 @@ final class DoorEstimatorApiIntegrationTest extends WebTestCase
         $this->assertEquals('Invalid input data', $json['error']);
     }
 
+    /**
+     * @dataProvider saveQuoteEdgeProvider
+     */
+    public function testSaveQuoteEdgeCases($quoteData, $markups, $quoteName, $customerInfo, $expectedStatus, $expectedSuccess): void
+    {
+        $data = [
+            'quoteData' => $quoteData,
+            'markups' => $markups,
+            'quoteName' => $quoteName,
+            'customerInfo' => $customerInfo
+        ];
+        $response = $this->client->request('POST', '/api/quotes', [
+            'auth_basic' => [self::$userUser, self::$userPass],
+            'json' => $data
+        ]);
+        $this->assertEquals($expectedStatus, $response->getStatusCode());
+        $json = json_decode($response->getContent(), true);
+        if ($expectedStatus === 200) {
+            $this->assertEquals($expectedSuccess, $json['success']);
+            $this->assertIsInt($json['quoteId']);
+        } else {
+            $this->assertArrayHasKey('error', $json);
+        }
+    }
+
+    public static function saveQuoteEdgeProvider(): array
+    {
+        $largeQuoteData = [];
+        for ($i = 0; $i < 100; $i++) {
+            $largeQuoteData['doors'][] = ['item' => "BulkItem$i", 'qty' => 1, 'price' => 10 + $i];
+        }
+        $validMarkups = ['doors' => 10, 'frames' => 5, 'hardware' => 8];
+        $validCustomer = ['name' => 'Test Customer'];
+
+        return [
+            // Large quote data
+            [$largeQuoteData, $validMarkups, 'LargeQuote', $validCustomer, 200, true],
+            // Malformed quote data
+            [[], $validMarkups, 'EmptyQuote', $validCustomer, 400, false],
+            [['doors' => [['item' => '', 'qty' => 1, 'price' => 10]]], $validMarkups, 'MalformedItem', $validCustomer, 400, false],
+            [['doors' => [['item' => 'Valid', 'qty' => 'not-a-number', 'price' => 10]]], $validMarkups, 'MalformedQty', $validCustomer, 400, false],
+            // Name validation
+            [$largeQuoteData, $validMarkups, '', $validCustomer, 400, false],
+            [$largeQuoteData, $validMarkups, str_repeat('A', 256), $validCustomer, 400, false],
+            [$largeQuoteData, $validMarkups, 'ValidName', $validCustomer, 200, true],
+            [$largeQuoteData, $validMarkups, '<script>alert(1)</script>', $validCustomer, 400, false],
+            // Duplicate name
+            [$largeQuoteData, $validMarkups, 'DuplicateName', $validCustomer, 200, true],
+            [$largeQuoteData, $validMarkups, 'DuplicateName', $validCustomer, 409, false],
+        ];
+    }
+
     public function testGetQuoteSuccess(): void
     {
         $response = $this->client->request('GET', '/api/quotes/' . self::$testQuoteId, [
@@ -232,6 +498,104 @@ final class DoorEstimatorApiIntegrationTest extends WebTestCase
         $this->assertNotEmpty($json);
     }
 
+    /**
+     * @dataProvider userQuotesPaginationProvider
+     */
+    public function testGetUserQuotesPaginationSorting($quotes, $page, $perPage, $sortField, $sortOrder, $expectedIds): void
+    {
+        // Insert quotes for pagination/sorting
+        foreach ($quotes as $q) {
+            $data = [
+                'quoteData' => $q['quoteData'],
+                'markups' => $q['markups'],
+                'quoteName' => $q['quoteName'],
+                'customerInfo' => $q['customerInfo']
+            ];
+            $response = $this->client->request('POST', '/api/quotes', [
+                'auth_basic' => [self::$userUser, self::$userPass],
+                'json' => $data
+            ]);
+            $this->assertEquals(200, $response->getStatusCode());
+        }
+        $params = [
+            'page' => $page,
+            'perPage' => $perPage,
+            'sort' => $sortField,
+            'order' => $sortOrder
+        ];
+        $query = http_build_query($params);
+        $response = $this->client->request('GET', '/api/quotes?' . $query, [
+            'auth_basic' => [self::$userUser, self::$userPass]
+        ]);
+        $this->assertEquals(200, $response->getStatusCode());
+        $json = json_decode($response->getContent(), true);
+        $ids = array_column($json, 'id');
+        $this->assertEquals($expectedIds, $ids);
+    }
+
+    public static function userQuotesPaginationProvider(): array
+    {
+        $quotes = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $quotes[] = [
+                'quoteData' => ['doors' => [['item' => "Door$i", 'qty' => 1, 'price' => 100 + $i]]],
+                'markups' => ['doors' => 10, 'frames' => 5, 'hardware' => 8],
+                'quoteName' => "Quote$i",
+                'customerInfo' => ['name' => "Customer$i"]
+            ];
+        }
+        return [
+            [$quotes, 1, 2, 'id', 'asc', [1, 2]],
+            [$quotes, 2, 2, 'id', 'asc', [3, 4]],
+            [$quotes, 1, 5, 'id', 'desc', [5, 4, 3, 2, 1]],
+        ];
+    }
+
+    public function testGetUserQuotesIsolation(): void
+    {
+        // Insert a quote as user
+        $data = [
+            'quoteData' => ['doors' => [['item' => 'UserOnly', 'qty' => 1, 'price' => 111]]],
+            'markups' => ['doors' => 10, 'frames' => 5, 'hardware' => 8],
+            'quoteName' => 'UserOnlyQuote',
+            'customerInfo' => ['name' => 'UserOnly']
+        ];
+        $response = $this->client->request('POST', '/api/quotes', [
+            'auth_basic' => [self::$userUser, self::$userPass],
+            'json' => $data
+        ]);
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // Insert a quote as admin
+        $data['quoteName'] = 'AdminOnlyQuote';
+        $response = $this->client->request('POST', '/api/quotes', [
+            'auth_basic' => [self::$adminUser, self::$adminPass],
+            'json' => $data
+        ]);
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // User should not see admin's quote
+        $response = $this->client->request('GET', '/api/quotes', [
+            'auth_basic' => [self::$userUser, self::$userPass]
+        ]);
+        $json = json_decode($response->getContent(), true);
+        foreach ($json as $quote) {
+            $this->assertNotEquals('AdminOnlyQuote', $quote['quoteName']);
+        }
+
+        // Admin should see both
+        $response = $this->client->request('GET', '/api/quotes', [
+            'auth_basic' => [self::$adminUser, self::$adminPass]
+        ]);
+        $json = json_decode($response->getContent(), true);
+        $foundUser = $foundAdmin = false;
+        foreach ($json as $quote) {
+            if ($quote['quoteName'] === 'UserOnlyQuote') $foundUser = true;
+            if ($quote['quoteName'] === 'AdminOnlyQuote') $foundAdmin = true;
+        }
+        $this->assertTrue($foundUser && $foundAdmin, 'Admin should see both quotes');
+    }
+
     public function testGenerateQuotePDFSuccess(): void
     {
         $response = $this->client->request('GET', '/api/quotes/' . self::$testQuoteId . '/pdf', [
@@ -255,6 +619,85 @@ final class DoorEstimatorApiIntegrationTest extends WebTestCase
         $this->assertEquals(500, $response->getStatusCode());
         $json = json_decode($response->getContent(), true);
         $this->assertEquals('Failed to generate PDF', $json['error']);
+    }
+
+    /**
+     * @dataProvider largeQuotePDFProvider
+     */
+    public function testGenerateQuotePDFLarge($quoteData, $markups): void
+    {
+        $data = [
+            'quoteData' => $quoteData,
+            'markups' => $markups,
+            'quoteName' => 'LargePDFQuote',
+            'customerInfo' => ['name' => 'PDF Customer']
+        ];
+        $response = $this->client->request('POST', '/api/quotes', [
+            'auth_basic' => [self::$userUser, self::$userPass],
+            'json' => $data
+        ]);
+        $this->assertEquals(200, $response->getStatusCode());
+        $json = json_decode($response->getContent(), true);
+        $quoteId = $json['quoteId'];
+
+        $start = microtime(true);
+        $response = $this->client->request('GET', '/api/quotes/' . $quoteId . '/pdf', [
+            'auth_basic' => [self::$userUser, self::$userPass]
+        ]);
+        $duration = microtime(true) - $start;
+        $this->assertLessThan(5.0, $duration, 'PDF generation should be <5s');
+        $this->assertEquals(200, $response->getStatusCode());
+        $json = json_decode($response->getContent(), true);
+        $this->assertTrue($json['success']);
+        $this->assertFileExists($json['pdfPath']);
+        $this->assertGreaterThan(10000, filesize($json['pdfPath']), 'PDF file should be large');
+        unlink($json['pdfPath']);
+    }
+
+    public static function largeQuotePDFProvider(): array
+    {
+        $largeQuoteData = ['doors' => []];
+        for ($i = 0; $i < 200; $i++) {
+            $largeQuoteData['doors'][] = ['item' => "BulkItem$i", 'qty' => 1, 'price' => 10 + $i];
+        }
+        $markups = ['doors' => 10, 'frames' => 5, 'hardware' => 8];
+        return [[$largeQuoteData, $markups]];
+    }
+
+    public function testGenerateQuotePDFConcurrent(): void
+    {
+        // Create a quote
+        $data = [
+            'quoteData' => ['doors' => [['item' => 'ConcurrentPDF', 'qty' => 1, 'price' => 123.45]]],
+            'markups' => ['doors' => 10, 'frames' => 5, 'hardware' => 8],
+            'quoteName' => 'ConcurrentPDFQuote',
+            'customerInfo' => ['name' => 'Concurrent']
+        ];
+        $response = $this->client->request('POST', '/api/quotes', [
+            'auth_basic' => [self::$userUser, self::$userPass],
+            'json' => $data
+        ]);
+        $this->assertEquals(200, $response->getStatusCode());
+        $json = json_decode($response->getContent(), true);
+        $quoteId = $json['quoteId'];
+
+        // Simulate 3 concurrent PDF generations
+        $pdfPaths = [];
+        foreach (range(1, 3) as $i) {
+            $response = $this->client->request('GET', '/api/quotes/' . $quoteId . '/pdf', [
+                'auth_basic' => [self::$userUser, self::$userPass]
+            ]);
+            $this->assertEquals(200, $response->getStatusCode());
+            $json = json_decode($response->getContent(), true);
+            $this->assertTrue($json['success']);
+            $pdfPaths[] = $json['pdfPath'];
+        }
+        // All files should exist and be cleaned up after unlink
+        foreach ($pdfPaths as $path) {
+            $this->assertFileExists($path);
+            unlink($path);
+            $this->assertFileDoesNotExist($path);
+        }
     }
 
     public function testDeleteQuoteSuccess(): void
@@ -317,7 +760,7 @@ final class DoorEstimatorApiIntegrationTest extends WebTestCase
         $this->assertEquals($origJson['quoteData'], $dupJson['quoteData'], 'Duplicated quote data does not match original');
         $this->assertEquals($origJson['markups'], $dupJson['markups'], 'Duplicated markups do not match original');
         $this->assertEquals($origJson['customerInfo'], $dupJson['customerInfo'], 'Duplicated customer info does not match original');
-    }
+}
 
     public function testDuplicateQuoteNotFound(): void
     {
@@ -329,7 +772,6 @@ final class DoorEstimatorApiIntegrationTest extends WebTestCase
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertFalse($json['success'] ?? false);
     }
-
     public function testSearchPricing(): void
     {
         $response = $this->client->request('GET', '/api/pricing/search?query=Test', [
@@ -467,10 +909,5 @@ final class DoorEstimatorApiIntegrationTest extends WebTestCase
         ]);
         $this->assertEquals(403, $response->getStatusCode());
         unlink($file['tmp_name']);
-    }
 }
-
-/**
- * Dummy API client for demonstration.
- * Replace with actual HTTP client or Nextcloud test client.
- */
+    }
