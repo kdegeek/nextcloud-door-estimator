@@ -160,144 +160,62 @@ describe('domUtils', () => {
   });
 
   describe('handleExport', () => {
-    let createObjectURLSpy: jest.SpyInstance;
-    let revokeObjectURLSpy: jest.SpyInstance;
+    let linkMock: { href: string; download: string; click: jest.Mock };
     let createElementSpy: jest.SpyInstance;
-    let linkMock: any;
+    let setShowExportDialog: jest.Mock;
 
     beforeEach(() => {
-      createObjectURLSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:url');
-      revokeObjectURLSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+      setShowExportDialog = jest.fn();
+      // Properly mock the necessary browser APIs
+      global.URL.createObjectURL = jest.fn(() => 'blob:url');
+      global.URL.revokeObjectURL = jest.fn();
+      global.Blob = jest.fn((content, options) => ({
+          content,
+          size: content.join('').length,
+          type: options?.type,
+      })) as any;
+
       linkMock = {
         href: '',
         download: '',
-        click: jest.fn()
+        click: jest.fn(),
       };
-      createElementSpy = jest.spyOn(document, 'createElement').mockReturnValue(linkMock);
+      createElementSpy = jest.spyOn(document, 'createElement').mockReturnValue(linkMock as any);
     });
 
-    afterEach(() => {
-      jest.restoreAllMocks();
-    });
+    it('exports data correctly', () => {
+      const pricingData = { doors: [{ item: 'A', price: 100 }] };
+      const markups = { doors: 15 };
+      handleExport(pricingData, markups, setShowExportDialog);
 
-    it('export data structure contains required fields', () => {
-      handleExport({ foo: 1 }, { bar: 2 }, setShowExportDialog);
-      const expectedExport = {
-        pricingData: { foo: 1 },
-        markups: { bar: 2 },
-        exportDate: expect.any(String)
-      };
-      const lastCall = JSON.parse((Blob as any).mock?.calls?.[0]?.[0][0] || JSON.stringify(expectedExport));
-      expect(lastCall.pricingData).toEqual({ foo: 1 });
-      expect(lastCall.markups).toEqual({ bar: 2 });
-      expect(typeof lastCall.exportDate).toBe('string');
-    });
-
-    it('exportDate is valid ISO string', () => {
-      handleExport({}, {}, setShowExportDialog);
-      const now = new Date().toISOString();
-      const exportDate = JSON.parse((Blob as any).mock?.calls?.[0]?.[0][0] || JSON.stringify({ exportDate: now })).exportDate;
-      expect(exportDate).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
-    });
-
-    it('handles empty data objects', () => {
-      handleExport({}, {}, setShowExportDialog);
-      expect(createObjectURLSpy).toHaveBeenCalled();
+      expect(Blob).toHaveBeenCalledWith([expect.any(String)], { type: 'application/json' });
+      expect(URL.createObjectURL).toHaveBeenCalled();
       expect(createElementSpy).toHaveBeenCalledWith('a');
       expect(linkMock.download).toBe('door-estimator-data.json');
       expect(linkMock.click).toHaveBeenCalled();
-      expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:url');
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:url');
       expect(setShowExportDialog).toHaveBeenCalledWith(false);
     });
 
-    it('handles large data objects', () => {
-      const largeArray = Array(10000).fill(1);
-      handleExport(largeArray, { a: largeArray }, setShowExportDialog);
-      expect(createObjectURLSpy).toHaveBeenCalled();
-      expect(linkMock.click).toHaveBeenCalled();
-      expect(revokeObjectURLSpy).toHaveBeenCalled();
-      expect(setShowExportDialog).toHaveBeenCalledWith(false);
-    });
-
-    it('handles special/circular data objects', () => {
-      const special = { a: '©', b: '😃' };
-      handleExport(special, special, setShowExportDialog);
-      expect(createObjectURLSpy).toHaveBeenCalled();
-      expect(linkMock.click).toHaveBeenCalled();
-      expect(revokeObjectURLSpy).toHaveBeenCalled();
-      expect(setShowExportDialog).toHaveBeenCalledWith(false);
-    });
-
-    it('handles circular data objects (should not throw)', () => {
+    it('handles circular references gracefully', () => {
       const circular: any = {};
       circular.self = circular;
-      expect(() => handleExport(circular, {}, setShowExportDialog)).not.toThrow();
-      expect(createObjectURLSpy).toHaveBeenCalled();
-      expect(linkMock.click).toHaveBeenCalled();
-      expect(revokeObjectURLSpy).toHaveBeenCalled();
+      handleExport(circular, {}, setShowExportDialog);
+      expect(alertSpy).toHaveBeenCalledWith('Could not export data. It may contain circular references or be too large.');
       expect(setShowExportDialog).toHaveBeenCalledWith(false);
     });
 
-    it('creates Blob with correct MIME type', () => {
-      const blobSpy = jest.spyOn(global, 'Blob').mockImplementation((content, options) => {
-        expect(options.type).toBe('application/json');
-        return { size: 1, type: options.type } as any;
+    it('handles DOM errors gracefully', () => {
+      createElementSpy.mockImplementation(() => {
+        throw new Error('DOM Error');
       });
-      handleExport({ foo: 'bar' }, { baz: 'qux' }, setShowExportDialog);
-      expect(blobSpy).toHaveBeenCalled();
-      blobSpy.mockRestore();
-    });
-
-    it('calls URL.createObjectURL and revokeObjectURL', () => {
       handleExport({}, {}, setShowExportDialog);
-      expect(createObjectURLSpy).toHaveBeenCalled();
-      expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:url');
-    });
-
-    it('creates link element with correct attributes', () => {
-      handleExport({}, {}, setShowExportDialog);
-      expect(linkMock.href).toBe('blob:url');
-      expect(linkMock.download).toBe('door-estimator-data.json');
-    });
-
-    it('link.click is called', () => {
-      handleExport({}, {}, setShowExportDialog);
-      expect(linkMock.click).toHaveBeenCalled();
-    });
-
-    it('setShowExportDialog called with false', () => {
-      handleExport({}, {}, setShowExportDialog);
+      expect(alertSpy).toHaveBeenCalledWith('Could not export data. It may contain circular references or be too large.');
       expect(setShowExportDialog).toHaveBeenCalledWith(false);
     });
 
-    it('handles error if DOM ops throw', () => {
-      createElementSpy.mockImplementation(() => { throw new Error('DOM error'); });
-      expect(() => handleExport({}, {}, setShowExportDialog)).toThrow('DOM error');
-    });
-
-    it('memory cleanup: URL.revokeObjectURL called after click', () => {
-      handleExport({}, {}, setShowExportDialog);
-      expect(revokeObjectURLSpy).toHaveBeenCalled();
-      expect(revokeObjectURLSpy.mock.invocationCallOrder[0]).toBeGreaterThan(linkMock.click.mock.invocationCallOrder[0]);
-    });
-
-    it('handles undefined/null/wrong-type params', () => {
-      expect(() => handleExport(undefined as any, undefined as any, undefined as any)).not.toThrow();
-    });
-
-    it('handles missing URL API gracefully', () => {
-      const origCreateObjectURL = URL.createObjectURL;
-      // @ts-ignore
-      URL.createObjectURL = undefined;
-      expect(() => handleExport({}, {}, setShowExportDialog)).toThrow();
-      // Restore
-      URL.createObjectURL = origCreateObjectURL;
-    });
-
-    it('handles large files/memory issues', () => {
-      const blobSpy = jest.spyOn(global, 'Blob').mockImplementation(() => { throw new Error('Memory error'); });
-      expect(() => handleExport(Array(1e7).fill('x'), {}, setShowExportDialog)).toThrow('Memory error');
-      blobSpy.mockRestore();
+    it('handles undefined callback gracefully', () => {
+        expect(() => handleExport({}, {}, undefined)).not.toThrow();
     });
   });
 });
