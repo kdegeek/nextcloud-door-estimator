@@ -8,17 +8,9 @@ build/
 out/
 coverage/
 /tests/coverage/
-js/*.js
-js/*.js.map
-js/*.d.ts
-
-# TypeScript build artifacts (keep .ts and .tsx sources)
-js/**/*.js
-dist/**/*.js
-js/**/*.js.map
-dist/**/*.js.map
-js/**/*.d.ts
-dist/**/*.d.ts
+/js/
+/css/*
+!/css/style.css
 
 # Development/IDE config
 .vscode/

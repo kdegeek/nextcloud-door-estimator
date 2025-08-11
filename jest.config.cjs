@@ -1,8 +1,6 @@
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'jsdom',
   extensionsToTreatAsEsm: ['.ts'],
-  globals: { 'ts-jest': { tsconfig: 'tsconfig.json', useESM: true } },
   testMatch: [
     '**/?(*.)+(test|spec).ts'
   ],
@@ -16,12 +14,11 @@ module.exports = {
   moduleNameMapper: {
     '^utils/(.*)$': '<rootDir>/utils/$1',
     '^@/(.*)$': '<rootDir>/$1',
-    '^~/(.*)$': '<rootDir>/$1',
-    '\\.vue$': '<rootDir>/types/shims-vue.d.ts'
+    '^~/(.*)$': '<rootDir>/$1'
   },
   transform: {
     '^.+\\.vue$': '@vue/vue3-jest',
-    '^.+\\.ts$': ['ts-jest', { useESM: true }]
+    '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json', useESM: true }]
   },
   moduleFileExtensions: ['ts', 'js', 'json', 'vue', 'node']
 };
