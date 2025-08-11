@@ -45,7 +45,7 @@
     "vite": "^6.3.5",
     "eslint": "^8.0.0",
     "stylelint": "^16.13.2",
-    "stylelint-config-recommended-vue": "^1.6.1"
+    "stylelint": "^16.13.2"
   },
   "scripts": {
     "build": "vite build",
