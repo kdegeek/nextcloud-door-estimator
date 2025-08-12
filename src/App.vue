@@ -54,7 +54,7 @@
 									class="border rounded px-2 py-1"
 									:class="darkMode ? 'bg-gray-700 text-gray-100 border-gray-600' : 'bg-white text-gray-900 border-gray-300'"
 									@change="updateQuoteItem(section.key, 0, 'frameType', quoteData[section.key][0].frameType)">
-									<option v-for="(items, type) in pricingData.frames" :key="type" :value="type">
+									<option v-for="type in frameTypes" :key="type" :value="type">
 										{{ type }}
 									</option>
 								</select>
@@ -126,6 +126,27 @@
 					<div v-if="inputError" class="mt-4 text-red-500 text-sm">
 						{{ inputError }}
 					</div>
+
+					<!-- Save Quote Section -->
+					<div class="mt-6 p-4 border-t" :class="darkMode ? 'border-gray-700' : 'border-gray-200'">
+						<div class="flex items-center gap-4">
+							<input
+								v-model="quoteName"
+								type="text"
+								placeholder="Enter quote name to save"
+								class="border rounded px-3 py-2 w-full md:w-1/3"
+								:class="darkMode ? 'bg-gray-700 text-gray-100 border-gray-600' : 'bg-white text-gray-900 border-gray-300'">
+							<button
+								class="bg-green-600 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 transition disabled:opacity-50"
+								:disabled="!quoteName.trim()"
+								@click="saveQuote">
+								Save Quote
+							</button>
+						</div>
+						<div v-if="saveStatus" class="mt-2 text-sm" :class="saveStatus.isError ? 'text-red-400' : 'text-green-400'">
+							{{ saveStatus.message }}
+						</div>
+					</div>
 				</div>
 
 				<!-- Admin View -->
@@ -166,8 +187,8 @@
 							</h3>
 							<div class="space-y-2 max-h-64 overflow-y-auto">
 								<template v-if="Array.isArray(items)">
-									<div v-for="(item, idx) in items" :key="idx" class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-										<span class="text-sm flex-1 mr-2">{{ item.item }}</span>
+									<div v-for="item in items" :key="item.id" class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+										<span class="text-sm flex-1 mr-2">{{ item.item_name }}</span>
 										<span class="text-sm font-bold text-green-600 font-mono">${{ item.price }}</span>
 									</div>
 								</template>
@@ -186,8 +207,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import NcAppContent from '@nextcloud/vue/dist/Components/NcAppContent.js'
+import { generateUrl } from '@nextcloud/router'
 import { lookupPrice, calculateSectionTotal, calculateGrandTotal } from '../utils/priceUtils.ts'
 import { handleImport, handleExport } from '../utils/domUtils.ts'
 
@@ -212,8 +234,12 @@ const darkMode = ref(false)
 const inputError = ref('')
 const showImportDialog = ref(false)
 const importText = ref('')
+const isLoading = ref(true)
+const serverError = ref('')
+const quoteName = ref('')
+const saveStatus = ref<{ message: string, isError: boolean } | null>(null)
 
-// Example initial data (should be loaded or replaced in real app)
+// Initialize with empty/default data. This will be populated from the server.
 const quoteData = reactive<Record<string, any[]>>({
 	doors: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }, { id: 'B', item: '', qty: 0, price: 0, total: 0 }],
 	doorOptions: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
@@ -228,36 +254,106 @@ const quoteData = reactive<Record<string, any[]>>({
 	hardware: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
 })
 const markups = reactive({ doors: 15, frames: 12, hardware: 18 })
-const pricingData = reactive<Record<string, any>>({
-	doors: [{ item: '2-0 x 6-8 Flush HM 18ga. Cyl lock prep, 2-3/4 backset', price: 493 }],
-	doorOptions: [],
-	inserts: [],
-	frames: { 'HM Drywall': [], 'HM EWA': [], 'HM USA': [] },
-	frameOptions: [],
-	hinges: [],
-	weatherstrip: [],
-	closers: [],
-	locksets: [],
-	exitDevices: [],
-	hardware: [],
+const pricingData = reactive<Record<string, any>>({})
+const savedQuotes = ref<any[]>([])
+
+// Lifecycle Hooks
+onMounted(() => {
+	loadInitialData()
 })
 
 // Methods
+async function loadInitialData() {
+	isLoading.value = true
+	serverError.value = ''
+	try {
+		// Fetch all pricing data
+		const pricingResponse = await fetch(generateUrl('/apps/door_estimator/api/pricing'))
+		if (!pricingResponse.ok) {
+			throw new Error(`Server responded with ${pricingResponse.status}`)
+		}
+		const pricingResult = await pricingResponse.json()
+
+		// Group pricing data by category
+		const groupedPricing: Record<string, any> = {}
+		for (const item of pricingResult) {
+			if (!groupedPricing[item.category]) {
+				groupedPricing[item.category] = []
+			}
+			groupedPricing[item.category].push(item)
+		}
+		Object.assign(pricingData, groupedPricing)
+
+		// Fetch default markups
+		const markupsResponse = await fetch(generateUrl('/apps/door_estimator/api/markup-defaults'))
+		if (markupsResponse.ok) {
+			const serverMarkups = await markupsResponse.json()
+			Object.assign(markups, serverMarkups)
+		}
+
+		// Fetch user's saved quotes
+		const quotesResponse = await fetch(generateUrl('/apps/door_estimator/api/quotes'))
+		if (quotesResponse.ok) {
+			savedQuotes.value = await quotesResponse.json()
+		}
+
+	} catch (e: any) {
+		console.error('Failed to load initial data:', e)
+		serverError.value = `Failed to load data from server: ${e.message}`
+	} finally {
+		isLoading.value = false
+	}
+}
+
 function updateQuoteItem(section: string, index: number, field: string, value: any) {
 	const item = quoteData[section][index]
 	item[field] = value
 
 	// Price lookup
 	if (field === 'item' || field === 'frameType') {
-		if (section === 'frames' && item.frameType) {
-			item.price = lookupPrice(pricingData, section, item.item, item.frameType)
-		} else {
-			item.price = lookupPrice(pricingData, section, item.item)
-		}
+		const subcategory = section === 'frames' ? item.frameType : null
+		item.price = lookupPrice(pricingData, section, item.item, subcategory)
 	}
 	// Total calculation
 	if (field === 'qty' || field === 'item' || field === 'price' || field === 'frameType') {
-		item.total = (item.price || 0) * (parseInt(item.qty, 10) || 0)
+		const quantity = parseInt(String(item.qty), 10)
+		item.total = (item.price || 0) * (isNaN(quantity) ? 0 : quantity)
+	}
+}
+
+async function saveQuote() {
+	if (!quoteName.value.trim()) {
+		saveStatus.value = { message: 'Please enter a name for the quote.', isError: true }
+		return
+	}
+	saveStatus.value = { message: 'Saving...', isError: false }
+
+	try {
+		const response = await fetch(generateUrl('/apps/door_estimator/api/quotes'), {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'requesttoken': (window as any).OC.requestToken,
+			},
+			body: JSON.stringify({
+				quoteData: quoteData,
+				markups: markups,
+				quoteName: quoteName.value,
+			}),
+		})
+
+		if (!response.ok) {
+			const errorData = await response.json()
+			throw new Error(errorData.error || `Server responded with ${response.status}`)
+		}
+
+		const result = await response.json()
+		saveStatus.value = { message: `Quote saved successfully with ID: ${result.quoteId}`, isError: false }
+		quoteName.value = '' // Clear input on success
+		loadInitialData() // Refresh quotes list
+	} catch (e: any) {
+		console.error('Failed to save quote:', e)
+		saveStatus.value = { message: `Error: ${e.message}`, isError: true }
 	}
 }
 
@@ -266,6 +362,14 @@ function sectionTotal(sectionKey: string) {
 }
 
 const grandTotal = computed(() => calculateGrandTotal(quoteData, markups))
+
+const frameTypes = computed(() => {
+	if (!pricingData.frames || !Array.isArray(pricingData.frames)) {
+		return []
+	}
+	const types = pricingData.frames.map(item => item.subcategory).filter(Boolean)
+	return [...new Set(types)]
+})
 
 function importData() {
 	handleImport(importText.value, (data: any) => {

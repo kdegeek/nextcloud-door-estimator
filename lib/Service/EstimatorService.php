@@ -328,31 +328,53 @@ class EstimatorService {
     }
     
     /**
-     * Generate a PDF (HTML for now) for a quote by ID.
+     * Generate a PDF for a quote by ID using TCPDF.
      * @param int $quoteId
      * @return array|null ['path' => string, 'downloadUrl' => string] or null if not found.
-     * Note: In production, use a real PDF library (e.g., TCPDF).
      */
     public function generateQuotePDF(int $quoteId): ?array {
         $quote = $this->getQuote($quoteId);
         if (!$quote) {
             return null;
         }
-        
-        // Simple HTML-based PDF generation for now
-        // In production, you'd use TCPDF or similar
+
         $html = $this->generateQuoteHTML($quote);
-        
+
+        // Create new PDF document
+        $pdf = new \TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+
+        // Set document information
+        $pdf->SetCreator(PDF_CREATOR);
+        $pdf->SetAuthor($this->userSession->getUser()->getDisplayName());
+        $pdf->SetTitle('Quote #' . $quoteId);
+        $pdf->SetSubject('Door & Hardware Quote');
+
+        // Remove default header/footer
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+
+        // Set auto page breaks
+        $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
+
+        // Add a page
+        $pdf->AddPage();
+
+        // Write HTML content
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        // Get the PDF content as a string
+        $pdfContent = $pdf->Output('quote_' . $quoteId . '.pdf', 'S');
+
         try {
             $folder = $this->appData->getFolder('quotes');
         } catch (NotFoundException $e) {
             $folder = $this->appData->newFolder('quotes');
         }
-        
-        $fileName = 'quote_' . $quoteId . '_' . date('Y-m-d_H-i-s') . '.html';
+
+        $fileName = 'quote_' . $quoteId . '_' . date('Y-m-d_H-i-s') . '.pdf';
         $file = $folder->newFile($fileName);
-        $file->putContent($html);
-        
+        $file->putContent($pdfContent);
+
         return [
             'path' => $fileName,
             'downloadUrl' => '/apps/door_estimator/quotes/' . $fileName
@@ -362,6 +384,7 @@ class EstimatorService {
     private function generateQuoteHTML(array $quote): string {
         $quoteData = $quote['quote_data'];
         $markups = $quote['markups'];
+        $companyName = htmlspecialchars($this->config->getAppValue('door_estimator', 'company_name', 'Millwork Products LLC'));
         
         $html = '<!DOCTYPE html>
 <html>
@@ -386,7 +409,7 @@ class EstimatorService {
 </head>
 <body>
     <div class="header">
-        <div class="company-name">Millwork Products LLC</div>
+        <div class="company-name">' . $companyName . '</div>
         <p>Professional Door & Hardware Solutions</p>
     </div>
     
@@ -535,30 +558,29 @@ class EstimatorService {
             $jsonContent = file_get_contents($tmpName);
             $data = json_decode($jsonContent, true);
 
-            // Validate and process 'markups' key
-            if (!isset($data['markups']) || !is_array($data['markups'])) {
-                throw new \InvalidArgumentException("The 'markups' key is required and must be an array in the imported JSON.");
-            }
-
-            // Optionally, further process or normalize 'markups' here if needed
-            // For example, ensure each markup entry has required fields
-            foreach ($data['markups'] as $markup) {
-                if (!isset($markup['type']) || !isset($markup['value'])) {
-                    throw new \InvalidArgumentException("Each markup must have 'type' and 'value' fields.");
-                }
-                // Additional normalization or transformation can be done here
-            }
-            $data = json_decode($jsonContent, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 return ['imported' => 0, 'errors' => ['Invalid JSON file']];
             }
-            if (!isset($data['pricingData']) || !is_array($data['pricingData'])) {
-                return ['imported' => 0, 'errors' => ['JSON must contain pricingData (array)']];
+
+            // The frontend exports both pricingData and markups. This function
+            // will now process both if they exist in the imported file.
+            if (isset($data['pricingData']) && is_array($data['pricingData'])) {
+                foreach ($data['pricingData'] as $i => $row) {
+                    $rowNum = $i + 1;
+                    $processRow($row, $rowNum);
+                }
             }
-            foreach ($data['pricingData'] as $i => $row) {
-                $rowNum = $i + 1;
-                $processRow($row, $rowNum);
+
+            // If markups are also present in the JSON, update them.
+            if (isset($data['markups']) && is_array($data['markups'])) {
+                $this->updateDefaultMarkups($data['markups']);
             }
+
+            // If neither key was found, return an error.
+            if (!isset($data['pricingData']) && !isset($data['markups'])) {
+                return ['imported' => 0, 'errors' => ["JSON must contain a 'pricingData' and/or 'markups' key."]];
+            }
+
             return ['imported' => $imported, 'errors' => $rowErrors];
         }
 

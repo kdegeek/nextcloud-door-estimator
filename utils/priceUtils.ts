@@ -1,10 +1,11 @@
 interface PricingItem {
-  item: string | number;
-  price?: number | null;
+  item_name: string;
+  price: number;
+  subcategory?: string | null;
 }
 
 interface PricingData {
-  [category: string]: PricingItem[] | { [frameType: string]: PricingItem[] };
+  [category: string]: PricingItem[];
 }
 
 interface QuoteItem {
@@ -22,32 +23,26 @@ interface Markups {
 export const lookupPrice = (
   pricingData: PricingData | null | undefined,
   category: string | null | undefined,
-  item: string | number | null | undefined,
-  frameType: string | null = null
+  itemName: string | null | undefined,
+  subcategory: string | null = null
 ): number => {
-  if (!pricingData || !category || !item) {
+  if (!pricingData || !category || !itemName) {
     return 0;
   }
 
-  let data = pricingData[category];
-  if (!data) {
+  const categoryData = pricingData[category];
+  if (!Array.isArray(categoryData)) {
     return 0;
   }
 
-  if (frameType) {
-    if (typeof data === 'object' && !Array.isArray(data) && data[frameType]) {
-      data = data[frameType];
-    } else {
-      return 0; // If frameType is specified but not applicable/found, return 0
+  const foundItem = categoryData.find(item => {
+    if (subcategory) {
+      return item.item_name === itemName && item.subcategory === subcategory;
     }
-  }
+    return item.item_name === itemName;
+  });
 
-  if (Array.isArray(data)) {
-    const found = data.find(d => d && d.item === item);
-    return found && typeof found.price === 'number' ? found.price : 0;
-  }
-
-  return 0;
+  return foundItem ? foundItem.price : 0;
 };
 
 export const calculateSectionTotal = (
