@@ -896,4 +896,74 @@ public function testUpdateDefaultMarkupsHandlesConfigException()
         $this->expectException(\Exception::class);
         $this->service->isPricingDataPresent();
     }
+
+    public function testExportPricingDataSuccess()
+    {
+        // Mock pricing data
+        $pricingData = [
+            [
+                'id' => 1,
+                'category' => 'doors',
+                'subcategory' => null,
+                'item' => 'Test Door',
+                'price' => 150.00,
+                'stock_status' => 'stock',
+                'description' => 'Test door description'
+            ],
+            [
+                'id' => 2,
+                'category' => 'frames',
+                'subcategory' => 'HM Drywall',
+                'item' => 'Test Frame',
+                'price' => 75.00,
+                'stock_status' => 'stock',
+                'description' => 'Test frame description'
+            ]
+        ];
+
+        // Mock repository to return pricing data
+        $this->repository->method('getAllPricingData')->willReturn($pricingData);
+
+        // Mock config to return markup values
+        $this->config->method('getAppValue')
+            ->willReturnMap([
+                ['door_estimator', 'markup_doors', '15', '15'],
+                ['door_estimator', 'markup_frames', '12', '12'],
+                ['door_estimator', 'markup_hardware', '18', '18']
+            ]);
+
+        $result = $this->service->exportPricingData();
+
+        // Verify the export structure
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('pricingData', $result);
+        $this->assertArrayHasKey('markups', $result);
+        $this->assertArrayHasKey('exportedAt', $result);
+        $this->assertArrayHasKey('version', $result);
+
+        // Verify pricing data
+        $this->assertCount(2, $result['pricingData']);
+        $this->assertEquals(1, $result['pricingData'][0]['id']);
+        $this->assertEquals('doors', $result['pricingData'][0]['category']);
+        $this->assertEquals('Test Door', $result['pricingData'][0]['item']);
+        $this->assertEquals(150.00, $result['pricingData'][0]['price']);
+
+        // Verify markups
+        $this->assertEquals(15.0, $result['markups']['doors']);
+        $this->assertEquals(12.0, $result['markups']['frames']);
+        $this->assertEquals(18.0, $result['markups']['hardware']);
+
+        // Verify metadata
+        $this->assertEquals('1.0', $result['version']);
+        $this->assertNotEmpty($result['exportedAt']);
+    }
+
+    public function testExportPricingDataHandlesRepositoryException()
+    {
+        $this->repository->method('getAllPricingData')
+            ->will($this->throwException(new \Exception('Database error')));
+
+        $this->expectException(\Exception::class);
+        $this->service->exportPricingData();
+    }
 }

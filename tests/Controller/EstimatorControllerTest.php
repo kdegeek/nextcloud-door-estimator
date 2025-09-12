@@ -487,4 +487,37 @@ class EstimatorControllerTest extends TestCase
         $this->assertEquals(500, $response->getStatus());
         unlink($file['tmp_name']);
     }
+
+    public function testExportPricingDataSuccess()
+    {
+        $exportData = [
+            'pricingData' => [
+                ['id' => 1, 'category' => 'doors', 'item' => 'Test Door', 'price' => 100.00]
+            ],
+            'markups' => ['doors' => 15, 'frames' => 12, 'hardware' => 18],
+            'exportedAt' => '2024-01-01 12:00:00',
+            'version' => '1.0'
+        ];
+        
+        $this->service->method('exportPricingData')->willReturn($exportData);
+        $response = $this->controller->exportPricingData();
+        
+        $responseData = $response->getData();
+        $this->assertTrue($responseData['success']);
+        $this->assertEquals($exportData, $responseData['data']);
+        $this->assertStringContains('door_estimator_export_', $responseData['filename']);
+        $this->assertStringContains('Successfully exported 1 pricing items', $responseData['message']);
+        $this->assertEquals(200, $response->getStatus());
+    }
+
+    public function testExportPricingDataHandlesServiceException()
+    {
+        $this->service->method('exportPricingData')->willThrowException(new \Exception('Export failed'));
+        $response = $this->controller->exportPricingData();
+        $this->assertEquals(500, $response->getStatus());
+        
+        $responseData = $response->getData();
+        $this->assertFalse($responseData['success']);
+        $this->assertEquals('Export failed', $responseData['message']);
+    }
 }

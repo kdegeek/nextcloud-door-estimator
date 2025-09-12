@@ -1,297 +1,696 @@
 <template>
 	<NcAppContent>
-		<div :class="['min-h-screen', darkMode ? 'bg-gray-900' : 'bg-gray-100', 'transition-colors']">
-			<!-- Navigation Bar -->
-			<nav :class="[darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200', 'shadow-sm border-b sticky top-0 z-40']">
-				<div class="flex justify-between h-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div class="flex items-center">
-						<span class="text-xl font-bold mr-3">🗝️</span>
-						<h1 :class="[darkMode ? 'text-gray-100' : 'text-gray-900']">
-							Door Estimator
-						</h1>
-					</div>
-					<div class="flex items-center space-x-4">
-						<button
-							:class="[activeTab === 'estimator'
-									? (darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700')
-									: (darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'),
-								'px-4 py-2 rounded-md text-sm font-medium transition-colors']"
-							@click="activeTab = 'estimator'">
-							Estimator
-						</button>
-						<button
-							:class="[activeTab === 'admin'
-									? (darkMode ? 'bg-purple-900 text-purple-200' : 'bg-purple-100 text-purple-700')
-									: (darkMode ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'),
-								'px-4 py-2 rounded-md text-sm font-medium transition-colors']"
-							@click="activeTab = 'admin'">
-							Admin
-						</button>
-						<button
-							:class="['ml-2 px-3 py-2 rounded-md text-sm font-medium transition-colors', darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-700']"
-							title="Toggle dark mode"
-							@click="darkMode = !darkMode">
-							{{ darkMode ? '🌙' : '☀️' }}
-						</button>
-					</div>
-				</div>
-			</nav>
+		<div :class="appClasses" role="application" :aria-label="$t('Door Estimator Application')">
+			<!-- Skip to main content link for accessibility -->
+			<a 
+				href="#main-content" 
+				class="skip-link"
+				@click="skipToMainContent"
+			>
+				{{ $t('Skip to main content') }}
+			</a>
 
-			<main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-				<!-- Estimator View -->
-				<div v-if="activeTab === 'estimator'">
-					<div v-for="section in sections" :key="section.key" class="mb-8">
-						<div
-							class="quote-section rounded-lg shadow-md p-6 mb-4"
-							:class="darkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-900'">
-							<h2 class="text-xl font-semibold mb-4">
-								{{ section.title }}
-							</h2>
-							<div v-if="section.hasFrameType" class="mb-4">
-								<label class="block mb-1 font-medium">Frame Type:</label>
-								<select
-									v-model="quoteData[section.key][0].frameType"
-									class="border rounded px-2 py-1"
-									:class="darkMode ? 'bg-gray-700 text-gray-100 border-gray-600' : 'bg-white text-gray-900 border-gray-300'"
-									@change="updateQuoteItem(section.key, 0, 'frameType', quoteData[section.key][0].frameType)">
-									<option v-for="(items, type) in pricingData.frames" :key="type" :value="type">
-										{{ type }}
-									</option>
-								</select>
-							</div>
-							<table class="w-full mb-4">
-								<thead>
-									<tr>
-										<th class="text-left py-1 px-2">
-											Item
-										</th>
-										<th class="text-left py-1 px-2">
-											Qty
-										</th>
-										<th class="text-left py-1 px-2">
-											Price
-										</th>
-										<th class="text-left py-1 px-2">
-											Total
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									<tr v-for="(item, idx) in quoteData[section.key]" :key="item.id">
-										<td class="py-1 px-2">
-											<input
-												v-model="item.item"
-												class="border rounded px-2 py-1 w-full"
-												:class="darkMode ? 'bg-gray-700 text-gray-100 border-gray-600' : 'bg-white text-gray-900 border-gray-300'"
-												:placeholder="section.hasFrameType && idx === 0 ? 'Frame Item' : 'Item'"
-												@change="updateQuoteItem(section.key, idx, 'item', item.item)">
-										</td>
-										<td class="py-1 px-2">
-											<input
-												v-model.number="item.qty"
-												type="number"
-												min="0"
-												class="border rounded px-2 py-1 w-20"
-												:class="darkMode ? 'bg-gray-700 text-gray-100 border-gray-600' : 'bg-white text-gray-900 border-gray-300'"
-												@change="updateQuoteItem(section.key, idx, 'qty', item.qty)">
-										</td>
-										<td class="py-1 px-2">
-											<input
-												v-model.number="item.price"
-												type="number"
-												min="0"
-												step="0.01"
-												class="border rounded px-2 py-1 w-24"
-												:class="darkMode ? 'bg-gray-700 text-gray-100 border-gray-600' : 'bg-white text-gray-900 border-gray-300'"
-												@change="updateQuoteItem(section.key, idx, 'price', item.price)">
-										</td>
-										<td class="py-1 px-2 font-mono">
-											${{ item.total ? item.total.toFixed(2) : '0.00' }}
-										</td>
-									</tr>
-								</tbody>
-							</table>
-							<div class="flex justify-between items-center">
-								<span :class="darkMode ? 'text-gray-300' : 'text-gray-700'">Section Total:</span>
-								<span :class="darkMode ? 'text-green-300' : 'text-green-700'">${{ sectionTotal(section.key).toFixed(2) }}</span>
-							</div>
-							<div v-if="inputError" class="mt-2 text-red-400 text-sm">
-								{{ inputError }}
-							</div>
-						</div>
-					</div>
-					<div class="mt-8 text-right text-2xl font-bold">
-						Grand Total: <span :class="darkMode ? 'text-green-300' : 'text-green-700'">${{ grandTotal.toFixed(2) }}</span>
-					</div>
-					<div v-if="inputError" class="mt-4 text-red-500 text-sm">
-						{{ inputError }}
+			<!-- Navigation -->
+			<TabNavigation 
+				:active-tab="activeTab" 
+				:tabs="navigationTabs"
+				@tab-change="handleTabChange" 
+			/>
+
+			<!-- Loading overlay for app initialization -->
+			<div v-if="appLoading" class="app-loading-overlay" role="status" :aria-label="$t('Loading application')">
+				<div class="loading-spinner" aria-hidden="true"></div>
+				<p class="loading-text">{{ $t('Loading Door Estimator...') }}</p>
+			</div>
+
+			<main 
+				id="main-content" 
+				class="main-content"
+				:class="{ 'content-loading': appLoading }"
+				role="main"
+				:aria-busy="appLoading"
+			>
+				<!-- Toast Notifications -->
+				<ToastNotifications />
+				
+				<!-- Session Warning Modal -->
+				<SessionWarning />
+				
+				<!-- Error Boundary -->
+				<div v-if="appError" class="app-error" role="alert">
+					<div class="error-icon" aria-hidden="true">⚠️</div>
+					<div class="error-content">
+						<h2 class="error-title">{{ $t('Application Error') }}</h2>
+						<p class="error-message">{{ appError }}</p>
+						<button 
+							:class="buttonClasses.primary" 
+							@click="retryAppInitialization"
+							:aria-label="$t('Retry loading application')"
+						>
+							{{ $t('Retry') }}
+						</button>
 					</div>
 				</div>
 
-				<!-- Admin View -->
-				<div v-if="activeTab === 'admin'">
-					<div class="text-2xl font-bold mb-4">
-						Admin Panel
-					</div>
-					<div class="flex flex-wrap gap-4 mb-6">
-						<button
-							class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 transition"
-							@click="showImportDialog = true">
-							Import Data
-						</button>
-						<button
-							class="bg-green-600 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 transition"
-							@click="exportData">
-							Export Data
-						</button>
-					</div>
-					<div v-if="showImportDialog" class="mb-6">
-						<textarea v-model="importText"
-							rows="6"
-							class="w-full p-2 border rounded mb-2"
-							placeholder="Paste JSON data here" />
-						<div class="flex gap-2">
-							<button class="bg-blue-600 text-white px-3 py-1 rounded" @click="importData">
-								Import
-							</button>
-							<button class="bg-gray-400 text-white px-3 py-1 rounded" @click="showImportDialog = false">
-								Cancel
-							</button>
-						</div>
-					</div>
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-						<div v-for="(items, category) in pricingData" :key="category" class="rounded-lg shadow-sm border p-6">
-							<h3 class="text-lg font-semibold mb-4 capitalize">
-								{{ category }}
-							</h3>
-							<div class="space-y-2 max-h-64 overflow-y-auto">
-								<template v-if="Array.isArray(items)">
-									<div v-for="(item, idx) in items" :key="idx" class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-										<span class="text-sm flex-1 mr-2">{{ item.item }}</span>
-										<span class="text-sm font-bold text-green-600 font-mono">${{ item.price }}</span>
-									</div>
-								</template>
-								<template v-else>
-									<div class="text-sm text-gray-500">
-										Complex category structure
-									</div>
-								</template>
-							</div>
-						</div>
-					</div>
-				</div>
+				<!-- Main Views -->
+				<template v-else>
+					<!-- Estimator View -->
+					<EstimatorView 
+						v-if="activeTab === 'estimator'" 
+						:key="'estimator'"
+						@loading-change="handleViewLoading"
+					/>
+
+					<!-- Admin View -->
+					<AdminView 
+						v-if="activeTab === 'admin'" 
+						:key="'admin'"
+						@loading-change="handleViewLoading"
+					/>
+				</template>
 			</main>
+
+			<!-- Global progress indicator -->
+			<div 
+				v-if="globalLoading" 
+				class="global-progress" 
+				role="progressbar" 
+				:aria-label="$t('Operation in progress')"
+				aria-live="polite"
+			>
+				<div class="progress-bar">
+					<div class="progress-fill" :style="{ width: `${loadingProgress}%` }"></div>
+				</div>
+			</div>
 		</div>
 	</NcAppContent>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, computed, onMounted, onErrorCaptured, nextTick } from 'vue'
 import NcAppContent from '@nextcloud/vue/dist/Components/NcAppContent.js'
-import { lookupPrice, calculateSectionTotal, calculateGrandTotal } from '../utils/priceUtils.ts'
-import { handleImport, handleExport } from '../utils/domUtils.ts'
+import TabNavigation from './components/TabNavigation.vue'
+import ToastNotifications from './components/ToastNotifications.vue'
+import SessionWarning from './components/SessionWarning.vue'
+import EstimatorView from './views/EstimatorView.vue'
+import AdminView from './views/AdminView.vue'
+import { useEstimatorStore, useThemeStore, useNotificationsStore } from './stores'
+import { setupGlobalErrorHandling, createErrorBoundary } from './utils/errorHandling'
+import { useNotifications } from './services/NotificationService'
+import { useLogging, measurePerformance } from './services/LoggingService'
+import { useAuth } from './composables/useAuth'
+import type { SectionKey } from './types'
 
-// Section definitions
-const sections = [
-	{ key: 'doors', title: 'Doors' },
-	{ key: 'doorOptions', title: 'Door Options' },
-	{ key: 'inserts', title: 'Inserts' },
-	{ key: 'frames', title: 'Frames', hasFrameType: true },
-	{ key: 'frameOptions', title: 'Frame Options' },
-	{ key: 'hinges', title: 'Hinges' },
-	{ key: 'weatherstrip', title: 'Weatherstrip' },
-	{ key: 'closers', title: 'Closers' },
-	{ key: 'locksets', title: 'Locksets' },
-	{ key: 'exitDevices', title: 'Exit Devices' },
-	{ key: 'hardware', title: 'Hardware' },
-]
+// Stores
+const estimatorStore = useEstimatorStore()
+const themeStore = useThemeStore()
+const notificationsStore = useNotificationsStore()
+
+// Authentication
+const auth = useAuth()
+
+// Error handling and logging
+const { handleApiError, showError, showSuccess } = useNotifications()
+const { info, error: logError, logUserAction, logBusinessOperation } = useLogging()
+
+// Setup global error handling
+setupGlobalErrorHandling()
+
+// Error boundary mixin
+const errorBoundary = createErrorBoundary()
 
 // State
 const activeTab = ref<'estimator' | 'admin'>('estimator')
-const darkMode = ref(false)
-const inputError = ref('')
-const showImportDialog = ref(false)
-const importText = ref('')
+const appLoading = ref(true)
+const appError = ref<string | null>(null)
+const globalLoading = ref(false)
+const loadingProgress = ref(0)
+const viewLoading = ref(false)
 
-// Example initial data (should be loaded or replaced in real app)
-const quoteData = reactive<Record<string, any[]>>({
-	doors: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }, { id: 'B', item: '', qty: 0, price: 0, total: 0 }],
-	doorOptions: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
-	inserts: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
-	frames: [{ id: 'A', item: '', frameType: 'HM Drywall', qty: 0, price: 0, total: 0 }],
-	frameOptions: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
-	hinges: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
-	weatherstrip: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
-	closers: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
-	locksets: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
-	exitDevices: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
-	hardware: [{ id: 'A', item: '', qty: 0, price: 0, total: 0 }],
+// Destructure store state and actions
+const { 
+  loadPricingData,
+  checkOnboardingStatus
+} = estimatorStore
+
+const isDarkMode = computed(() => themeStore.isDarkMode)
+
+// Navigation tabs with accessibility labels and permission checking
+const navigationTabs = computed(() => {
+  const tabs = [
+    { 
+      key: 'estimator', 
+      label: 'Estimator', 
+      icon: () => '📊',
+      ariaLabel: 'Switch to Estimator view'
+    }
+  ]
+  
+  // Only show admin tab if user has admin privileges
+  if (auth.isAdmin.value) {
+    tabs.push({
+      key: 'admin', 
+      label: 'Admin', 
+      icon: () => '⚙️',
+      ariaLabel: 'Switch to Admin view'
+    })
+  }
+  
+  return tabs
 })
-const markups = reactive({ doors: 15, frames: 12, hardware: 18 })
-const pricingData = reactive<Record<string, any>>({
-	doors: [{ item: '2-0 x 6-8 Flush HM 18ga. Cyl lock prep, 2-3/4 backset', price: 493 }],
-	doorOptions: [],
-	inserts: [],
-	frames: { 'HM Drywall': [], 'HM EWA': [], 'HM USA': [] },
-	frameOptions: [],
-	hinges: [],
-	weatherstrip: [],
-	closers: [],
-	locksets: [],
-	exitDevices: [],
-	hardware: [],
+
+// Computed classes with responsive and accessibility considerations
+const appClasses = computed(() => [
+  'app-container',
+  isDarkMode.value ? 'app--dark' : 'app--light',
+  {
+    'app--loading': appLoading.value,
+    'app--error': appError.value,
+    'app--mobile': isMobile.value,
+    'app--tablet': isTablet.value,
+    'app--desktop': isDesktop.value
+  }
+])
+
+const buttonClasses = computed(() => ({
+  primary: [
+    'btn btn--primary',
+    isDarkMode.value ? 'btn--primary-dark' : 'btn--primary-light'
+  ],
+  secondary: [
+    'btn btn--secondary',
+    isDarkMode.value ? 'btn--secondary-dark' : 'btn--secondary-light'
+  ]
+}))
+
+// Responsive breakpoint detection
+const isMobile = computed(() => {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth < 768
+})
+
+const isTablet = computed(() => {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth >= 768 && window.innerWidth < 1024
+})
+
+const isDesktop = computed(() => {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth >= 1024
 })
 
 // Methods
-function updateQuoteItem(section: string, index: number, field: string, value: any) {
-	const item = quoteData[section][index]
-	item[field] = value
-
-	// Price lookup
-	if (field === 'item' || field === 'frameType') {
-		if (section === 'frames' && item.frameType) {
-			item.price = lookupPrice(pricingData, section, item.item, item.frameType)
-		} else {
-			item.price = lookupPrice(pricingData, section, item.item)
-		}
-	}
-	// Total calculation
-	if (field === 'qty' || field === 'item' || field === 'price' || field === 'frameType') {
-		item.total = (item.price || 0) * (parseInt(item.qty, 10) || 0)
-	}
+const handleTabChange = (tab: string) => {
+  // Check permissions before switching tabs
+  if (tab === 'admin' && !auth.isAdmin.value) {
+    showError('Access denied', 'Administrator privileges required')
+    return
+  }
+  
+  activeTab.value = tab as 'estimator' | 'admin'
+  
+  // Announce tab change to screen readers
+  const tabLabel = navigationTabs.value.find(t => t.key === tab)?.label || tab
+  notificationsStore.info(`Switched to ${tabLabel} view`, { 
+    duration: 2000,
+    screenReaderOnly: true 
+  })
+  
+  // Log user action
+  logUserAction('tab_change', { tab, user_id: auth.userId.value })
 }
 
-function sectionTotal(sectionKey: string) {
-	return calculateSectionTotal(quoteData, markups, sectionKey)
+const handleViewLoading = (loading: boolean) => {
+  viewLoading.value = loading
+  globalLoading.value = loading
 }
 
-const grandTotal = computed(() => calculateGrandTotal(quoteData, markups))
-
-function importData() {
-	handleImport(importText.value, (data: any) => {
-		Object.assign(pricingData, data)
-	}, (data: any) => {
-		Object.assign(markups, data)
-	}, (val: boolean) => {
-		showImportDialog.value = val
-	})
+const skipToMainContent = (event: Event) => {
+  event.preventDefault()
+  const mainContent = document.getElementById('main-content')
+  if (mainContent) {
+    mainContent.focus()
+    mainContent.scrollIntoView({ behavior: 'smooth' })
+  }
 }
 
-function exportData() {
-	handleExport(pricingData, markups, (val: boolean) => {
-		// Optionally show a dialog or feedback
-	})
+const retryAppInitialization = async () => {
+  appError.value = null
+  appLoading.value = true
+  await initializeApp()
 }
+
+// Placeholder translation function (would be replaced with actual Nextcloud translation)
+const $t = (text: string) => text
+
+// App initialization with comprehensive error handling
+const initializeApp = async () => {
+  return measurePerformance('app_initialization', async () => {
+    try {
+      appLoading.value = true
+      appError.value = null
+      loadingProgress.value = 0
+      
+      info('Starting app initialization')
+      
+      // Initialize authentication
+      loadingProgress.value = 10
+      try {
+        await auth.initialize()
+        if (!auth.isAuthenticated.value) {
+          throw new Error('User not authenticated')
+        }
+        logUserAction('auth_initialized', { user_id: auth.userId.value })
+      } catch (error) {
+        logError('Authentication failed', { error: error instanceof Error ? error.message : String(error) })
+        appError.value = 'Authentication required. Please log in to continue.'
+        return
+      }
+      
+      // Initialize theme
+      loadingProgress.value = 30
+      themeStore.initializeTheme()
+      logUserAction('theme_initialized')
+      
+      // Check onboarding status
+      loadingProgress.value = 50
+      try {
+        const status = await checkOnboardingStatus()
+        if (!status.hasData) {
+          // Only switch to admin tab if user has admin privileges
+          if (auth.isAdmin.value) {
+            activeTab.value = 'admin'
+            showSuccess('Welcome!', 'Please import your pricing data to get started.')
+          } else {
+            showError('Setup Required', 'Please contact an administrator to set up pricing data.')
+          }
+          logUserAction('onboarding_required')
+        } else {
+          logUserAction('onboarding_complete')
+        }
+      } catch (error) {
+        logError('Failed to check onboarding status', { error: error instanceof Error ? error.message : String(error) })
+        // Non-critical error, continue initialization
+      }
+      
+      // Load pricing data
+      loadingProgress.value = 80
+      try {
+        await loadPricingData()
+        showSuccess('Success', 'Pricing data loaded successfully!')
+        logBusinessOperation('load_pricing_data', true)
+      } catch (error) {
+        logError('Failed to load pricing data', { error: error instanceof Error ? error.message : String(error) })
+        handleApiError(error, 'Loading pricing data')
+        logBusinessOperation('load_pricing_data', false)
+        // This is not a critical error for app functionality
+      }
+      
+      loadingProgress.value = 100
+      
+      // Small delay to show completion
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      info('App initialization completed successfully')
+      logBusinessOperation('app_initialization', true)
+      
+    } catch (error) {
+      logError('App initialization failed', { error: error instanceof Error ? error.message : String(error) })
+      appError.value = error instanceof Error ? error.message : 'Failed to initialize application'
+      logBusinessOperation('app_initialization', false)
+      handleApiError(error, 'Application initialization')
+    } finally {
+      appLoading.value = false
+      loadingProgress.value = 0
+    }
+  })
+}
+
+// Error boundary with comprehensive logging
+onErrorCaptured((error, instance, info) => {
+  logError('Vue error captured', {
+    error: error.message,
+    component: instance?.$options.name || 'Unknown',
+    info,
+    stack: error.stack
+  })
+  
+  appError.value = 'An unexpected error occurred. Please refresh the page.'
+  handleApiError(error, 'Component error')
+  
+  return false // Propagate error to global handler
+})
+
+// Initialize app
+onMounted(async () => {
+  await initializeApp()
+  
+  // Set up responsive breakpoint listeners
+  if (typeof window !== 'undefined') {
+    const handleResize = () => {
+      // Force reactivity update for responsive computed properties
+      nextTick()
+    }
+    
+    window.addEventListener('resize', handleResize)
+    
+    // Cleanup on unmount would go here in a real component
+  }
+})
 </script>
 
+<style>
+/* Import responsive and accessibility styles */
+@import './styles/responsive.css';
+</style>
+
 <style scoped>
-/* Responsive tweaks and dark mode overrides */
-.quote-section {
-  transition: background 0.2s, border-color 0.2s;
+/* App Container */
+.app-container {
+  min-height: 100vh;
+  transition: background-color 0.2s, color 0.2s;
+  position: relative;
 }
-@media (max-width: 640px) {
-  .quote-section {
-    padding: 1rem !important;
+
+.app--light {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+.app--dark {
+  background-color: #111827;
+  color: #f9fafb;
+}
+
+/* Skip Link for Accessibility */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #3b82f6;
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  border-radius: 4px;
+  z-index: 10000;
+  font-weight: 500;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* App Loading Overlay */
+.app-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: white;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+.loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Main Content */
+.main-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  transition: opacity 0.3s, filter 0.3s;
+  outline: none; /* Remove focus outline since this is programmatically focused */
+}
+
+.content-loading {
+  opacity: 0.7;
+  filter: blur(1px);
+  pointer-events: none;
+}
+
+/* App Error State */
+.app-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  min-height: 400px;
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.error-content {
+  max-width: 500px;
+}
+
+.error-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: #dc2626;
+}
+
+.error-message {
+  font-size: 16px;
+  margin: 0 0 24px 0;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* Global Progress Indicator */
+.global-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  background: #3b82f6;
+  transition: width 0.3s ease;
+  border-radius: 0 3px 3px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  transition: width 0.3s ease;
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px; /* Minimum touch target size */
+  min-width: 44px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.btn--primary-light {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn--primary-light:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn--primary-dark {
+  background: #2563eb;
+  color: white;
+}
+
+.btn--primary-dark:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.btn--secondary-light {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn--secondary-light:hover:not(:disabled) {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.btn--secondary-dark {
+  background: #374151;
+  color: #d1d5db;
+  border: 1px solid #4b5563;
+}
+
+.btn--secondary-dark:hover:not(:disabled) {
+  background: #4b5563;
+  transform: translateY(-1px);
+}
+
+/* Responsive Design */
+.app--mobile .main-content {
+  padding: 16px 12px;
+}
+
+.app--tablet .main-content {
+  padding: 20px 16px;
+}
+
+.app--desktop .main-content {
+  padding: 24px 16px;
+}
+
+/* Mobile-first responsive breakpoints */
+@media (max-width: 767px) {
+  .main-content {
+    padding: 16px 12px;
+  }
+  
+  .app-error {
+    padding: 32px 16px;
+    min-height: 300px;
+  }
+  
+  .error-icon {
+    font-size: 36px;
+  }
+  
+  .error-title {
+    font-size: 20px;
+  }
+  
+  .error-message {
+    font-size: 14px;
+  }
+  
+  .loading-spinner {
+    width: 36px;
+    height: 36px;
+    border-width: 3px;
+  }
+  
+  .loading-text {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .main-content {
+    padding: 20px 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .main-content {
+    padding: 24px 16px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .app-container {
+    border: 2px solid currentColor;
+  }
+  
+  .btn {
+    border: 2px solid currentColor;
+  }
+  
+  .skip-link {
+    border: 2px solid white;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .app-container,
+  .main-content,
+  .btn,
+  .loading-spinner,
+  .progress-fill {
+    transition: none;
+    animation: none;
+  }
+  
+  .skip-link {
+    transition: none;
+  }
+  
+  .loading-spinner {
+    animation: none;
+    border: 4px solid #3b82f6;
+  }
+}
+
+/* Print styles */
+@media print {
+  .skip-link,
+  .app-loading-overlay,
+  .global-progress {
+    display: none;
+  }
+  
+  .main-content {
+    max-width: none;
+    padding: 0;
+  }
+  
+  .app-container {
+    background: white;
+    color: black;
   }
 }
 </style>

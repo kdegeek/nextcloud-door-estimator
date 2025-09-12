@@ -1,16 +1,67 @@
 {
     "name": "millworkproducts/door-estimator",
-    "description": "NextCloud Door Estimator App",
+    "description": "Professional door and hardware estimating system for Nextcloud",
     "type": "nextcloud-app",
     "license": "AGPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Millwork Products LLC",
+            "email": "support@millworkproducts.com"
+        }
+    ],
+    "homepage": "https://github.com/millworkproducts/door-estimator",
+    "support": {
+        "issues": "https://github.com/millworkproducts/door-estimator/issues",
+        "source": "https://github.com/millworkproducts/door-estimator"
+    },
     "require": {
-        "php": "^8.0",
+        "php": "^8.0 || ^8.1 || ^8.2 || ^8.3",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-xml": "*",
+        "ext-pdo": "*",
         "tecnickcom/tcpdf": "^6.4",
-        "phpoffice/phpspreadsheet": "^1.29"
+        "phpoffice/phpspreadsheet": "^1.29",
+        "psr/log": "^1.1 || ^2.0 || ^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5 || ^10.0",
+        "nextcloud/coding-standard": "^1.0",
+        "psalm/phar": "^5.0",
+        "phpstan/phpstan": "^1.10"
     },
     "autoload": {
         "psr-4": {
             "OCA\\DoorEstimator\\": "lib/"
         }
-    }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "OCA\\DoorEstimator\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit --configuration tests/phpunit-coverage.xml",
+        "test:unit": "phpunit --configuration tests/phpunit-coverage.xml --testsuite='Unit Tests'",
+        "test:integration": "phpunit --configuration tests/phpunit-coverage.xml --testsuite='Integration Tests'",
+        "test:performance": "phpunit --configuration tests/phpunit-coverage.xml --testsuite='Performance Tests'",
+        "test:security": "phpunit --configuration tests/phpunit-coverage.xml --testsuite='Security Tests'",
+        "test:coverage": "phpunit --configuration tests/phpunit-coverage.xml --coverage-html tests/coverage/php",
+        "test:ci": "phpunit --configuration tests/phpunit-coverage.xml --coverage-clover tests/coverage/clover.xml",
+        "psalm": "psalm.phar --no-cache",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "lint": "find . -name \\*.php -not -path './vendor/*' -not -path './build/*' -print0 | xargs -0 -n1 php -l"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "classmap-authoritative": true,
+        "sort-packages": true,
+        "platform": {
+            "php": "8.0"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

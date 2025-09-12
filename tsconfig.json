@@ -1,41 +1,70 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "strict": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
     "allowJs": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "isolatedModules": true,
+    "useDefineForClassFields": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "utils/*": ["utils/*"]
+      "@/*": ["src/*"],
+      "utils/*": ["utils/*"],
+      "types/*": ["types/*"],
+      "services/*": ["src/services/*"],
+      "components/*": ["src/components/*"],
+      "views/*": ["src/views/*"],
+      "stores/*": ["src/stores/*"]
     },
     "typeRoots": [
       "./node_modules/@types",
       "./types"
     ],
+    "types": [
+      "jest",
+      "node"
+    ],
     "lib": [
-      "ES2022",
+      "ES2020",
       "DOM",
-      "DOM.Iterable"
+      "DOM.Iterable",
+      "WebWorker"
     ]
   },
   "include": [
-    "*.ts",
-    "*.tsx",
-    "js/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
     "utils/**/*.ts",
+    "types/**/*.ts",
     "tests/**/*.ts",
-    "**/*.vue"
+    "tests/**/*.vue",
+    "*.ts",
+    "*.vue"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "scripts"
-  ]
+    "js",
+    "css",
+    "vendor",
+    "lib",
+    "scripts/__pycache__",
+    "tests/scripts/__pycache__"
+  ],
+  "vueCompilerOptions": {
+    "target": 3.5
+  }
 }

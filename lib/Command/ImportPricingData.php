@@ -1,136 +1,334 @@
 <?php
 
+declare(strict_types=1);
+
 namespace OCA\DoorEstimator\Command;
 
-use OCP\IDBConnection;
+use OCA\DoorEstimator\Service\ConfigurationService;
+use OCA\DoorEstimator\Service\DeploymentService;
+use OCA\DoorEstimator\Service\EstimatorService;
+use OCA\DoorEstimator\Service\HealthMonitoringService;
+use OCP\IConfig;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * CLI command for Door Estimator maintenance and data operations
+ * 
+ * Provides command-line interface for importing data, running health checks,
+ * and performing maintenance tasks.
+ */
 class ImportPricingData extends Command {
     
-    private $db;
-    
-    public function __construct(IDBConnection $db) {
+    public function __construct(
+        private EstimatorService $estimatorService,
+        private ConfigurationService $configService,
+        private DeploymentService $deploymentService,
+        private HealthMonitoringService $healthService,
+        private IConfig $config
+    ) {
         parent::__construct();
-        $this->db = $db;
     }
     
-    protected function configure() {
-        $this->setName('door-estimator:import-pricing')
-             ->setDescription('Import pricing data from extracted Excel data')
-             ->addOption('json-file', 'j', InputOption::VALUE_OPTIONAL, 
-                        'Path to JSON file with pricing data', 
-                        'scripts/extracted_pricing_data.json');
+    protected function configure(): void {
+        $this->setName('door-estimator:import')
+            ->setDescription('Import pricing data from file')
+            ->addArgument('file', InputArgument::REQUIRED, 'Path to the import file')
+            ->addOption('format', 'f', InputOption::VALUE_OPTIONAL, 'File format (json, csv, xlsx)', 'json')
+            ->addOption('validate-only', null, InputOption::VALUE_NONE, 'Only validate the file without importing')
+            ->addOption('health-check', null, InputOption::VALUE_NONE, 'Run system health check')
+            ->addOption('install', null, InputOption::VALUE_NONE, 'Run installation setup')
+            ->addOption('upgrade', null, InputOption::VALUE_OPTIONAL, 'Run upgrade from specified version')
+            ->addOption('export-config', null, InputOption::VALUE_NONE, 'Export current configuration')
+            ->addOption('import-config', null, InputOption::VALUE_OPTIONAL, 'Import configuration from file');
     }
     
-    protected function execute(InputInterface $input, OutputInterface $output) {
-        $jsonFile = $input->getOption('json-file');
-        
-        // Try absolute path first, then relative to app root
-        if (!file_exists($jsonFile)) {
-            $jsonFile = __DIR__ . '/../../' . $jsonFile;
+    protected function execute(InputInterface $input, OutputInterface $output): int {
+        // Handle special operations first
+        if ($input->getOption('health-check')) {
+            return $this->runHealthCheck($output);
         }
         
-        if (!file_exists($jsonFile)) {
-            $output->writeln("<error>Error: JSON file not found at $jsonFile</error>");
-            return 1;
+        if ($input->getOption('install')) {
+            return $this->runInstallation($output);
         }
         
-        $output->writeln("Importing pricing data from $jsonFile...");
-        
-        $jsonData = json_decode(file_get_contents($jsonFile), true);
-        if (!$jsonData) {
-            $output->writeln("<error>Error: Invalid JSON data</error>");
-            return 1;
+        if ($input->getOption('upgrade')) {
+            return $this->runUpgrade($input->getOption('upgrade'), $output);
         }
         
-        // Clear existing data
-        $output->writeln("Clearing existing pricing data...");
-        $this->db->getQueryBuilder()
-                 ->delete('door_estimator_pricing')
-                 ->execute();
+        if ($input->getOption('export-config')) {
+            return $this->exportConfiguration($output);
+        }
         
-        $qb = $this->db->getQueryBuilder();
-        $totalImported = 0;
+        if ($input->getOption('import-config')) {
+            return $this->importConfiguration($input->getOption('import-config'), $output);
+        }
         
-        foreach ($jsonData as $category => $items) {
-            $output->writeln("Importing $category items...");
-            $categoryCount = 0;
+        // Default: import pricing data
+        return $this->importPricingData($input, $output);
+    }
+    
+    /**
+     * Import pricing data from file
+     */
+    private function importPricingData(InputInterface $input, OutputInterface $output): int {
+        $filePath = $input->getArgument('file');
+        $format = $input->getOption('format');
+        $validateOnly = $input->getOption('validate-only');
+        
+        if (!file_exists($filePath)) {
+            $output->writeln('<error>File not found: ' . $filePath . '</error>');
+            return Command::FAILURE;
+        }
+        
+        try {
+            $output->writeln('Starting import process...');
             
-            foreach ($items as $item) {
-                try {
-                    $qb->insert('door_estimator_pricing')
-                        ->values([
-                            'category' => $qb->createNamedParameter($item['category']),
-                            'subcategory' => $qb->createNamedParameter($item['subcategory']),
-                            'item_name' => $qb->createNamedParameter($item['item_name']),
-                            'price' => $qb->createNamedParameter($item['price']),
-                            'stock_status' => $qb->createNamedParameter($item['stock_status']),
-                            'description' => $qb->createNamedParameter($item['description'] ?? ''),
-                            'created_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
-                            'updated_at' => $qb->createNamedParameter(date('Y-m-d H:i:s'))
-                        ]);
-                    $qb->execute();
-                    $categoryCount++;
-                    
-                } catch (\Exception $e) {
-                    $output->writeln("<error>Error importing item: " . $item['item_name'] . " - " . $e->getMessage() . "</error>");
+            // Check file size
+            $fileSize = filesize($filePath);
+            $maxSize = (int) $this->configService->getAppValue('max_import_file_size');
+            
+            if ($fileSize > $maxSize) {
+                $output->writeln('<error>File too large: ' . $fileSize . ' bytes (max: ' . $maxSize . ')</error>');
+                return Command::FAILURE;
+            }
+            
+            // Simulate file upload array structure
+            $uploadedFile = [
+                'tmp_name' => $filePath,
+                'name' => basename($filePath),
+                'size' => $fileSize,
+                'type' => $this->getMimeType($filePath, $format),
+                'error' => UPLOAD_ERR_OK
+            ];
+            
+            if ($validateOnly) {
+                $output->writeln('Validating file...');
+                
+                // Basic validation
+                if (!$this->validateFileFormat($filePath, $format)) {
+                    $output->writeln('<error>Invalid file format</error>');
+                    return Command::FAILURE;
+                }
+                
+                $output->writeln('<info>File validation completed successfully</info>');
+                return Command::SUCCESS;
+            }
+            
+            $result = $this->estimatorService->importPricingFromUpload($uploadedFile);
+            
+            if ($result['success']) {
+                $output->writeln('<info>Import completed successfully</info>');
+                $output->writeln('Items imported: ' . ($result['imported'] ?? 0));
+                $output->writeln('Items updated: ' . ($result['updated'] ?? 0));
+                
+                if (!empty($result['errors'])) {
+                    $output->writeln('<comment>Warnings:</comment>');
+                    foreach ($result['errors'] as $error) {
+                        $output->writeln('  - ' . $error);
+                    }
+                }
+            } else {
+                $output->writeln('<error>Import failed: ' . $result['message'] . '</error>');
+                return Command::FAILURE;
+            }
+            
+        } catch (\Exception $e) {
+            $output->writeln('<error>Import failed: ' . $e->getMessage() . '</error>');
+            return Command::FAILURE;
+        }
+        
+        return Command::SUCCESS;
+    }
+    
+    /**
+     * Run system health check
+     */
+    private function runHealthCheck(OutputInterface $output): int {
+        $output->writeln('Running system health check...');
+        
+        try {
+            $healthCheck = $this->healthService->performHealthCheck();
+            
+            $output->writeln('Overall Status: <info>' . strtoupper($healthCheck['status']) . '</info>');
+            $output->writeln('Duration: ' . $healthCheck['duration_ms'] . 'ms');
+            $output->writeln('');
+            
+            foreach ($healthCheck['checks'] as $checkName => $check) {
+                $statusColor = match($check['status']) {
+                    'healthy' => 'info',
+                    'warning' => 'comment',
+                    'error' => 'error',
+                    default => 'info'
+                };
+                
+                $output->writeln(sprintf(
+                    '%s: <%s>%s</%s> (%sms)',
+                    ucfirst(str_replace('_', ' ', $checkName)),
+                    $statusColor,
+                    strtoupper($check['status']),
+                    $statusColor,
+                    $check['duration_ms'] ?? 0
+                ));
+                
+                if (!empty($check['message'])) {
+                    $output->writeln('  ' . $check['message']);
+                }
+                
+                if (!empty($check['errors'])) {
+                    foreach ($check['errors'] as $error) {
+                        $output->writeln('  <error>- ' . $error . '</error>');
+                    }
                 }
             }
             
-            $output->writeln("  Imported $categoryCount items for $category");
-            $totalImported += $categoryCount;
+            return $healthCheck['status'] === 'error' ? Command::FAILURE : Command::SUCCESS;
+            
+        } catch (\Exception $e) {
+            $output->writeln('<error>Health check failed: ' . $e->getMessage() . '</error>');
+            return Command::FAILURE;
         }
-        
-        $output->writeln("<info>Successfully imported $totalImported pricing items!</info>");
-        
-        // Generate sample data for door options, frame options, etc.
-        $this->importAdditionalData($output);
-        
-        return 0;
     }
     
-    private function importAdditionalData(OutputInterface $output) {
-        $output->writeln("Adding additional pricing data...");
+    /**
+     * Run installation setup
+     */
+    private function runInstallation(OutputInterface $output): int {
+        $output->writeln('Running installation setup...');
         
-        $additionalData = [
-            // Door options
-            ['category' => 'doorOptions', 'subcategory' => null, 'item_name' => 'Deadbolt Bore', 'price' => 52.00, 'stock_status' => 'stock'],
-            ['category' => 'doorOptions', 'subcategory' => null, 'item_name' => 'Z-Ast w/ASA strike prep attached', 'price' => 103.00, 'stock_status' => 'stock'],
-            ['category' => 'doorOptions', 'subcategory' => null, 'item_name' => 'Z-Ast w/flush bolt prep attached', 'price' => 173.00, 'stock_status' => 'stock'],
-            ['category' => 'doorOptions', 'subcategory' => null, 'item_name' => 'Louver (specify size)', 'price' => 85.00, 'stock_status' => 'special_order'],
+        try {
+            $result = $this->deploymentService->install();
             
-            // Frame options
-            ['category' => 'frameOptions', 'subcategory' => null, 'item_name' => 'Face Weld & Finish', 'price' => 32.00, 'stock_status' => 'stock'],
-            ['category' => 'frameOptions', 'subcategory' => null, 'item_name' => 'Deadbolt Strike Prep', 'price' => 35.00, 'stock_status' => 'stock'],
-            ['category' => 'frameOptions', 'subcategory' => null, 'item_name' => 'Jamb reinf. for Rim exit device', 'price' => 12.00, 'stock_status' => 'stock'],
-            ['category' => 'frameOptions', 'subcategory' => null, 'item_name' => 'Mullion (specify height)', 'price' => 65.00, 'stock_status' => 'special_order'],
-        ];
-        
-        $qb = $this->db->getQueryBuilder();
-        
-        foreach ($additionalData as $item) {
-            try {
-                $qb->insert('door_estimator_pricing')
-                    ->values([
-                        'category' => $qb->createNamedParameter($item['category']),
-                        'subcategory' => $qb->createNamedParameter($item['subcategory']),
-                        'item_name' => $qb->createNamedParameter($item['item_name']),
-                        'price' => $qb->createNamedParameter($item['price']),
-                        'stock_status' => $qb->createNamedParameter($item['stock_status']),
-                        'description' => $qb->createNamedParameter(''),
-                        'created_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
-                        'updated_at' => $qb->createNamedParameter(date('Y-m-d H:i:s'))
-                    ]);
-                $qb->execute();
+            if ($result['success']) {
+                $output->writeln('<info>Installation completed successfully</info>');
+                $output->writeln('Version: ' . $result['version']);
                 
-            } catch (\Exception $e) {
-                $output->writeln("<error>Error importing additional item: " . $item['item_name'] . " - " . $e->getMessage() . "</error>");
+                foreach ($result['steps'] as $step => $stepResult) {
+                    $output->writeln('  ' . $step . ': ' . (is_array($stepResult) ? $stepResult['status'] ?? 'completed' : $stepResult));
+                }
+            } else {
+                $output->writeln('<error>Installation failed: ' . $result['message'] . '</error>');
+                return Command::FAILURE;
             }
+            
+        } catch (\Exception $e) {
+            $output->writeln('<error>Installation failed: ' . $e->getMessage() . '</error>');
+            return Command::FAILURE;
         }
         
-        $output->writeln("  Added " . count($additionalData) . " additional items");
+        return Command::SUCCESS;
+    }
+    
+    /**
+     * Run upgrade process
+     */
+    private function runUpgrade(string $fromVersion, OutputInterface $output): int {
+        $output->writeln('Running upgrade from version ' . $fromVersion . '...');
+        
+        try {
+            $result = $this->deploymentService->upgrade($fromVersion);
+            
+            if ($result['success']) {
+                $output->writeln('<info>Upgrade completed successfully</info>');
+                $output->writeln('From: ' . $result['from_version']);
+                $output->writeln('To: ' . $result['to_version']);
+                
+                foreach ($result['steps'] as $step => $stepResult) {
+                    $output->writeln('  ' . $step . ': ' . (is_array($stepResult) ? $stepResult['status'] ?? 'completed' : $stepResult));
+                }
+            } else {
+                $output->writeln('<error>Upgrade failed: ' . $result['message'] . '</error>');
+                return Command::FAILURE;
+            }
+            
+        } catch (\Exception $e) {
+            $output->writeln('<error>Upgrade failed: ' . $e->getMessage() . '</error>');
+            return Command::FAILURE;
+        }
+        
+        return Command::SUCCESS;
+    }
+    
+    /**
+     * Export configuration to file
+     */
+    private function exportConfiguration(OutputInterface $output): int {
+        try {
+            $config = $this->configService->exportConfiguration();
+            $filename = 'door_estimator_config_' . date('Y-m-d_H-i-s') . '.json';
+            
+            file_put_contents($filename, json_encode($config, JSON_PRETTY_PRINT));
+            
+            $output->writeln('<info>Configuration exported to: ' . $filename . '</info>');
+            
+        } catch (\Exception $e) {
+            $output->writeln('<error>Configuration export failed: ' . $e->getMessage() . '</error>');
+            return Command::FAILURE;
+        }
+        
+        return Command::SUCCESS;
+    }
+    
+    /**
+     * Import configuration from file
+     */
+    private function importConfiguration(string $filePath, OutputInterface $output): int {
+        if (!file_exists($filePath)) {
+            $output->writeln('<error>Configuration file not found: ' . $filePath . '</error>');
+            return Command::FAILURE;
+        }
+        
+        try {
+            $configData = json_decode(file_get_contents($filePath), true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $output->writeln('<error>Invalid JSON in configuration file</error>');
+                return Command::FAILURE;
+            }
+            
+            $this->configService->importConfiguration($configData);
+            
+            $output->writeln('<info>Configuration imported successfully</info>');
+            
+        } catch (\Exception $e) {
+            $output->writeln('<error>Configuration import failed: ' . $e->getMessage() . '</error>');
+            return Command::FAILURE;
+        }
+        
+        return Command::SUCCESS;
+    }
+    
+    /**
+     * Get MIME type for file format
+     */
+    private function getMimeType(string $filePath, string $format): string {
+        $mimeTypes = [
+            'json' => 'application/json',
+            'csv' => 'text/csv',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'xls' => 'application/vnd.ms-excel'
+        ];
+        
+        return $mimeTypes[$format] ?? 'application/octet-stream';
+    }
+    
+    /**
+     * Validate file format
+     */
+    private function validateFileFormat(string $filePath, string $format): bool {
+        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        
+        $validExtensions = [
+            'json' => ['json'],
+            'csv' => ['csv'],
+            'xlsx' => ['xlsx'],
+            'xls' => ['xls']
+        ];
+        
+        return in_array($extension, $validExtensions[$format] ?? []);
     }
 }

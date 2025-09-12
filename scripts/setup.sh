@@ -11,6 +11,22 @@ debug_trace() {
     printf "%s[DEBUG]%s %s\n" "$YELLOW" "$NC" "$1"
 }
 
+# Function to validate numeric values
+validate_numeric() {
+    value=${1-}
+    default=${2-0}
+    case "$value" in
+        ''|*[!0-9]*)
+            [ "${DEBUG_VALIDATE:-0}" = "1" ] && printf '[DEBUG] Non-numeric value "%s" -> default %s\n' "$value" "$default" >&2
+            if [ "${VALIDATE_WARN:-0}" = "1" ]; then
+                printf '[WARN] Falling back to default numeric value: %s (input: "%s")\n' "$default" "$value" >&2
+            fi
+            printf '%s\n' "$default"
+            ;;
+        *) printf '%s\n' "$value" ;;
+    esac
+}
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -355,6 +371,7 @@ install_app() {
     fi
     NODE_VERSION=$(node --version | sed 's/v//')
     NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+    NODE_MAJOR=$(validate_numeric "$NODE_MAJOR" "0")
     if [ "$NODE_MAJOR" -lt 20 ]; then
         print_error "Node.js version $NODE_VERSION detected. Node.js v20+ is required."
         print_status "Please upgrade Node.js to v20 or newer: https://nodejs.org/en/download"
@@ -368,6 +385,7 @@ install_app() {
     NPM_VERSION=$(npm --version 2>/dev/null || echo "unknown")
     debug_trace "Detected npm version: $NPM_VERSION"
     NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+    NPM_MAJOR=$(validate_numeric "$NPM_MAJOR" "0")
     if [ "$NPM_MAJOR" -lt 10 ]; then
         print_error "npm version $NPM_VERSION detected. npm v10+ is required."
         print_status "Please upgrade npm to v10 or newer: https://www.npmjs.com/get-npm"
@@ -376,7 +394,7 @@ install_app() {
     
     print_status "Building Vue 3 frontend (npm install + webpack build)..."
     cd "$APP_DIR"
-    sh scripts/build.sh || { print_error "Frontend build failed. See above for details."; exit 1; }
+    NC_SKIP_SETUP=1 sh scripts/build.sh || { print_error "Frontend build failed. See above for details."; exit 1; }
     cd - >/dev/null
     
     print_success "Application files installed from GitHub"
@@ -387,6 +405,7 @@ ensure_nodejs() {
     if command -v node >/dev/null 2>&1; then
         NODE_VERSION=$(node --version | sed 's/v//')
         NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+        NODE_MAJOR=$(validate_numeric "$NODE_MAJOR" "0")
         if [ "$NODE_MAJOR" -ge 20 ]; then
             return 0
         else
@@ -416,6 +435,7 @@ ensure_nodejs() {
             if command -v node >/dev/null 2>&1; then
                 NODE_VERSION=$(node --version | sed 's/v//')
                 NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+                NODE_MAJOR=$(validate_numeric "$NODE_MAJOR" "0")
                 if [ "$NODE_MAJOR" -ge 20 ]; then
                     print_success "Node.js v20+ installed successfully."
                     return 0
@@ -532,9 +552,15 @@ verify_installation() {
     fi
     
     # Check database tables
-    PRICING_COUNT=$(sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json 2>/dev/null | grep -o '"count":"[0-9]*"' | cut -d'"' -f4 || echo "0")
+    if command -v jq >/dev/null 2>&1; then
+        PRICING_COUNT=$(sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json | jq -r '.[0].count // 0' 2>/dev/null || echo 0)
+    else
+        PRICING_COUNT=$(sudo -u $WEB_USER php "$NEXTCLOUD_ROOT/occ" db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json | grep -o '"count"[[:space:]]*:[[:space:]]*"\{0,1\}[0-9]\+"\{0,1\}' | grep -o '[0-9]\+' || echo 0)
+    fi
     debug_trace "PRICING_COUNT result: $PRICING_COUNT"
-    if [ "$PRICING_COUNT" -gt 0 ] 2>/dev/null; then
+    PRICING_COUNT=$(validate_numeric "$PRICING_COUNT" "0")
+
+    if [ "$PRICING_COUNT" -gt 0 ]; then
         print_success "Database contains $PRICING_COUNT pricing items"
     else
         print_warning "No pricing data found in database"
@@ -584,7 +610,7 @@ show_instructions() {
     echo "   - Verify permissions: ls -la $APP_DIR"
     echo "   - Test database: sudo -u $WEB_USER php $NEXTCLOUD_ROOT/occ db:show-tables | grep door_estimator"
     echo ""
-    if [ "$PRICING_COUNT" -eq 0 ]; then
+    if [ "$(validate_numeric "$PRICING_COUNT" "0")" -eq 0 ]; then
         echo -e "${YELLOW}⚠️  Note: No pricing data was imported. You may need to run:${NC}"
         echo "   sudo -u $WEB_USER php $NEXTCLOUD_ROOT/occ door-estimator:import-pricing"
         echo ""

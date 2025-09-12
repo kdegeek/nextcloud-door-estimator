@@ -35,6 +35,24 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Function to validate numeric values
+validate_numeric() {
+    local value
+    local default
+    value=${1-}
+    default=${2-0}
+    case "$value" in
+        ''|*[!0-9]*)
+            [ "${DEBUG_VALIDATE:-0}" = "1" ] && printf '[DEBUG] Non-numeric value "%s" -> default %s\n' "$value" "$default" >&2
+            if [ "${VALIDATE_WARN:-0}" = "1" ]; then
+                printf '[WARN] Falling back to default numeric value: %s (input: "%s")\n' "$default" "$value" >&2
+            fi
+            printf '%s\n' "$default"
+            ;;
+        *) printf '%s\n' "$value" ;;
+    esac
+}
+
 # Function to check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -243,7 +261,9 @@ install_app() {
     
         NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
         NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
-    
+        NODE_MAJOR=$(validate_numeric "$NODE_MAJOR" "0")
+        NPM_MAJOR=$(validate_numeric "$NPM_MAJOR" "0")
+
         if [ -n "$NODE_BIN" ] && [ "$NPM_FOUND" -eq 1 ] && [ "$NODE_MAJOR" -ge 20 ] && [ "$NPM_MAJOR" -ge 10 ]; then
             print_success "Detected Node.js binary: $NODE_BIN (v$NODE_VERSION) and npm (v$NPM_VERSION) in container."
             return 0
@@ -282,6 +302,8 @@ install_app() {
                         NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
                         NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
                         NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+                        NODE_MAJOR=$(validate_numeric "$NODE_MAJOR" "0")
+                        NPM_MAJOR=$(validate_numeric "$NPM_MAJOR" "0")
                         if [ "$NODE_MAJOR" -ge 20 ] && [ "$NPM_MAJOR" -ge 10 ]; then
                             print_success "Node.js v20+ and npm v10+ installed successfully in the Alpine container."
                             return 0
@@ -310,6 +332,8 @@ install_app() {
                     NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
                     NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
                     NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+                    NODE_MAJOR=$(validate_numeric "$NODE_MAJOR" "0")
+                    NPM_MAJOR=$(validate_numeric "$NPM_MAJOR" "0")
                     if [ "$NODE_MAJOR" -ge 20 ] && [ "$NPM_MAJOR" -ge 10 ]; then
                         print_success "Node.js v20+ and npm v10+ installed successfully in the container."
                         return 0
@@ -356,7 +380,7 @@ install_app() {
         docker exec "$AIO_CONTAINER_NAME" which nodejs || true
         print_status "Debug: \$PATH in container:"
         docker exec "$AIO_CONTAINER_NAME" printenv PATH
-        print_status "Please install Node.js v18 LTS in the container and rerun this script, or build manually with: docker exec $AIO_CONTAINER_NAME bash -c 'cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh'"
+        print_status "Please install Node.js v20 LTS (or newer) in the container and rerun this script, or build manually with: docker exec $AIO_CONTAINER_NAME bash -c 'cd /var/www/html/apps/$APP_NAME && sh scripts/build.sh'"
         exit 1
     fi
 
@@ -391,8 +415,11 @@ install_app() {
     print_status "Checking for Node.js v20+ and npm v10+ in container (required for frontend build)..."
     NODE_VERSION=$(docker exec "$AIO_CONTAINER_NAME" node --version | sed 's/v//')
     NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+    NODE_MAJOR=$(validate_numeric "$NODE_MAJOR" "0")
     NPM_VERSION=$(docker exec "$AIO_CONTAINER_NAME" npm --version 2>/dev/null || echo "unknown")
     NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+    NPM_MAJOR=$(validate_numeric "$NPM_MAJOR" "0")
+
     if [ "$NODE_MAJOR" -lt 20 ]; then
         print_error "Node.js version $NODE_VERSION detected in container. Node.js v20+ is required."
         print_status "Please upgrade Node.js in the container to v20 or newer: https://nodejs.org/en/download"
@@ -517,8 +544,13 @@ verify_installation() {
     
     # Check database tables
     local pricing_count
-    pricing_count=$(docker exec -u www-data "$AIO_CONTAINER_NAME" php /var/www/html/occ db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json 2>/dev/null | grep -o '"count":"[0-9]*"' | cut -d'"' -f4 || echo "0")
-    
+    if command -v jq >/dev/null 2>&1; then
+        pricing_count=$(docker exec -u www-data "$AIO_CONTAINER_NAME" php /var/www/html/occ db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json | jq -r '.[0].count // 0' 2>/dev/null || echo 0)
+    else
+        pricing_count=$(docker exec -u www-data "$AIO_CONTAINER_NAME" php /var/www/html/occ db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json | grep -o '"count"[[:space:]]*:[[:space:]]*"\{0,1\}[0-9]\+"\{0,1\}' | grep -o '[0-9]\+' || echo 0)
+    fi
+    pricing_count=$(validate_numeric "$pricing_count" "0")
+
     if [ "$pricing_count" -gt 0 ]; then
         print_success "Database contains $pricing_count pricing items"
     else
@@ -553,7 +585,12 @@ show_instructions() {
     echo ""
     echo "📊 Pricing Data:"
     local pricing_count
-    pricing_count=$(docker exec -u www-data "$AIO_CONTAINER_NAME" php /var/www/html/occ db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json 2>/dev/null | grep -o '"count":"[0-9]*"' | cut -d'"' -f4 || echo "0")
+    if command -v jq >/dev/null 2>&1; then
+        pricing_count=$(docker exec -u www-data "$AIO_CONTAINER_NAME" php /var/www/html/occ db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json | jq -r '.[0].count // 0' 2>/dev/null || echo 0)
+    else
+        pricing_count=$(docker exec -u www-data "$AIO_CONTAINER_NAME" php /var/www/html/occ db:query "SELECT COUNT(*) as count FROM oc_door_estimator_pricing" --output=json | grep -o '"count"[[:space:]]*:[[:space:]]*"\{0,1\}[0-9]\+"\{0,1\}' | grep -o '[0-9]\+' || echo 0)
+    fi
+    pricing_count=$(validate_numeric "$pricing_count" "0")
     echo "   - $pricing_count items currently in database"
     if [ "$pricing_count" -eq 0 ]; then
         echo -e "   ${YELLOW}- Import your pricing data using the instructions above${NC}"

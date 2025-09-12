@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: Node - Lint, Test, Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Stylelint
+        run: npm run stylelint
+
+      - name: Test (Jest)
+        run: npm test -- --coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-coverage
+          path: coverage
+
+  php:
+    name: PHP - Composer, PHPUnit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: xdebug
+
+      - name: Install Composer dependencies
+        uses: ramsey/composer-install@v3
+        with:
+          composer-options: --no-interaction --no-progress --prefer-dist
+
+      - name: PHPUnit
+        run: |
+          if [ -f phpunit.xml ] || [ -f phpunit.xml.dist ]; then
+            vendor/bin/phpunit --coverage-text
+          else
+            echo "No phpunit.xml found, skipping."
+          fi
+
+  security:
+    name: Security - npm/composer audit, dependency review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install (prod)
+        run: npm ci --omit=dev
+
+      - name: npm audit
+        run: |
+          npm audit --audit-level=high || true
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install Composer (prod)
+        uses: ramsey/composer-install@v3
+        with:
+          composer-options: --no-interaction --no-progress --prefer-dist --no-dev
+
+      - name: composer audit
+        run: |
+          composer audit || true
+
+      - name: Dependency Review (PR only)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  codestyle:
+    name: Code Style - ESLint (and PHP CS Fixer if configured)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: PHP CS Fixer (optional)
+        run: |
+          if [ -f .php-cs-fixer.dist.php ] || [ -f .php-cs-fixer.php ]; then
+            php -v
+            if command -v php-cs-fixer >/dev/null 2>&1; then
+              php-cs-fixer --version
+              php-cs-fixer fix --dry-run --diff || true
+            else
+              echo "PHP CS Fixer not installed; skipping."
+            fi
+          else
+            echo "No PHP CS Fixer config; skipping."
+          fi

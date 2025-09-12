@@ -1,58 +1,125 @@
 {
   "name": "nextcloud-door-estimator",
   "version": "1.0.0",
-  "description": "A Nextcloud app frontend for door estimation, built with TypeScript and Vue using Nextcloud's official Vite config.",
-  "author": "Nextcloud Community",
+  "description": "Professional door and hardware estimating system for Nextcloud - Vue 3 frontend with TypeScript",
+  "author": {
+    "name": "Millwork Products LLC",
+    "email": "support@millworkproducts.com"
+  },
   "license": "AGPL-3.0-or-later",
   "private": true,
+  "homepage": "https://github.com/millworkproducts/door-estimator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/millworkproducts/door-estimator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/millworkproducts/door-estimator/issues"
+  },
   "main": "js/door-estimator.js",
   "types": "types/nextcloud.d.ts",
   "files": [
     "src/",
-    "js/door-estimator.js",
-    "js/door-estimator.js.map",
+    "js/",
+    "css/",
     "types/",
-    "jest.config.js",
-    "tsconfig.json"
+    "jest.config.cjs",
+    "tsconfig.json",
+    "vite.config.js"
   ],
   "engines": {
-    "node": "^20.0.0",
-    "npm": "^10.0.0"
+    "node": "^20.10.0",
+    "npm": "^10.2.0"
   },
   "browserslist": [
     "extends @nextcloud/browserslist-config"
   ],
   "type": "module",
   "dependencies": {
-    "typescript": "^5.4.0",
-    "vue": "^3.5.18",
+    "@nextcloud/axios": "^2.4.0",
+    "@nextcloud/dialogs": "^5.3.7",
+    "@nextcloud/initial-state": "^2.2.0",
+    "@nextcloud/l10n": "^2.0.0",
+    "@nextcloud/moment": "^1.3.1",
     "@nextcloud/router": "^2.0.0",
     "@nextcloud/vue": "^8.0.0",
-    "@nextcloud/l10n": "^2.0.0"
+    "lodash-es": "^4.17.21",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.18",
+    "vue-router": "^4.4.5",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "@vue/compiler-sfc": "^3.5.18",
-    "@vue/test-utils": "^2.4.0-alpha.2",
-    "@vue/vue3-jest": "^29.2.6",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^30.0.5",
-    "ts-jest": "^29.1.1",
     "@nextcloud/browserslist-config": "^3.0.1",
     "@nextcloud/eslint-config": "^8.4.2",
+    "@nextcloud/eslint-plugin": "^2.2.1",
     "@nextcloud/stylelint-config": "^3.1.0",
     "@nextcloud/vite-config": "^2.4.0",
-    "vite": "^6.3.5",
+    "@types/jest": "^29.5.14",
+    "@types/lodash-es": "^4.17.12",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/compiler-sfc": "^3.5.18",
+    "@vue/eslint-config-typescript": "^14.6.0",
+    "@vue/test-utils": "^2.4.0-alpha.2",
+    "@vue/vue3-jest": "^29.2.6",
     "eslint": "^8.0.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsdoc": "^56.1.2",
+    "eslint-plugin-n": "^17.21.3",
+    "eslint-plugin-promise": "^7.2.1",
+    "eslint-plugin-vue": "^9.29.1",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^30.0.5",
+    "sass": "^1.81.1",
     "stylelint": "^16.13.2",
-    "stylelint": "^16.13.2"
+    "stylelint-config-recommended-vue": "^1.5.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.4.0",
+    "vite": "^6.3.5",
+    "vite-tsconfig-paths": "^5.0.0",
+    "vue-tsc": "^3.0.6"
   },
   "scripts": {
     "build": "vite build",
-    "dev": "vite --mode development build",
-    "watch": "vite --mode development build --watch",
-    "lint": "eslint src",
+    "build:prod": "NODE_ENV=production vite build",
+    "dev": "vite",
+    "dev-build": "vite build --mode development",
+    "watch": "vite build --mode development --watch",
+    "serve": "vite preview",
+    "lint": "eslint src --ext .vue,.js,.ts",
+    "lint:fix": "eslint src --ext .vue,.js,.ts --fix",
     "stylelint": "stylelint 'src/**/*.vue' 'src/**/*.scss' 'src/**/*.css'",
-    "test": "jest --config jest.config.cjs"
-  }
+    "stylelint:fix": "stylelint 'src/**/*.vue' 'src/**/*.scss' 'src/**/*.css' --fix",
+    "test": "jest --config jest.config.cjs",
+    "test:watch": "jest --config jest.config.cjs --watch",
+    "test:coverage": "jest --config tests/jest-coverage.config.cjs",
+    "test:frontend": "jest --config tests/jest-coverage.config.cjs --testPathPattern=tests/frontend",
+    "test:frontend:watch": "jest --config tests/jest-coverage.config.cjs --testPathPattern=tests/frontend --watch",
+    "test:frontend:coverage": "jest --config tests/jest-coverage.config.cjs --testPathPattern=tests/frontend --coverage",
+    "test:unit": "jest --config tests/jest-coverage.config.cjs --testPathPattern='(components|services|utils|stores|views)'",
+    "test:integration": "jest --config tests/jest-coverage.config.cjs --testPathPattern=integration",
+    "test:all": "npm run test:frontend && npm run test:php",
+    "test:php": "phpunit --configuration tests/phpunit-coverage.xml",
+    "test:php:unit": "phpunit --configuration tests/phpunit-coverage.xml --testsuite='Unit Tests'",
+    "test:php:integration": "phpunit --configuration tests/phpunit-coverage.xml --testsuite='Integration Tests'",
+    "test:php:performance": "phpunit --configuration tests/phpunit-coverage.xml --testsuite='Performance Tests'",
+    "test:php:security": "phpunit --configuration tests/phpunit-coverage.xml --testsuite='Security Tests'",
+    "test:performance": "npm run test:php:performance",
+    "test:security": "npm run test:php:security",
+    "test:ci": "npm run test:frontend:coverage && npm run test:php",
+    "type-check": "vue-tsc --noEmit",
+    "clean": "rm -rf js/ css/ node_modules/.vite tests/coverage/",
+    "clean:coverage": "rm -rf tests/coverage/",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "nextcloud",
+    "door",
+    "estimator",
+    "vue3",
+    "typescript",
+    "quotes",
+    "pricing"
+  ]
 }

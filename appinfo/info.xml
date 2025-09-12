@@ -7,17 +7,28 @@
     <description><![CDATA[
     A comprehensive door and hardware estimating application that replaces Excel-based workflows.
     Features include real-time pricing lookups, quote management, PDF generation, and administrative 
-    tools for pricing data management.
+    tools for pricing data management. Supports multi-user environments with role-based access control.
     ]]></description>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <licence>agpl</licence>
-    <author>Millwork Products LLC</author>
+    <author mail="support@millworkproducts.com">Millwork Products LLC</author>
     <namespace>DoorEstimator</namespace>
     <category>office</category>
+    <website>https://github.com/millworkproducts/door-estimator</website>
     <bugs>https://github.com/millworkproducts/door-estimator/issues</bugs>
+    <repository type="git">https://github.com/millworkproducts/door-estimator.git</repository>
+    <screenshot>https://raw.githubusercontent.com/millworkproducts/door-estimator/main/screenshots/main.png</screenshot>
     <dependencies>
         <nextcloud min-version="29" max-version="31"/>
-        <php min-version="8.0"/>
+        <php min-version="8.0" max-version="8.3"/>
+        <lib min-version="2.0">curl</lib>
+        <lib min-version="1.0">json</lib>
+        <lib min-version="1.0">mbstring</lib>
+        <lib min-version="1.0">xml</lib>
+        <database min-version="5.7">mysql</database>
+        <database min-version="10.2">mariadb</database>
+        <database min-version="11">postgresql</database>
+        <database min-version="3.8">sqlite</database>
     </dependencies>
     <navigations>
         <navigation>
@@ -25,9 +36,18 @@
             <name>Door Estimator</name>
             <route>door_estimator.page.index</route>
             <icon>app.svg</icon>
+            <order>10</order>
         </navigation>
     </navigations>
     <settings>
         <admin>OCA\DoorEstimator\Settings\AdminSettings</admin>
     </settings>
+    <commands>
+        <command>OCA\DoorEstimator\Command\ImportPricingData</command>
+    </commands>
+    <repair-steps>
+        <post-migration>
+            <step>OCA\DoorEstimator\Migration\RepairStep</step>
+        </post-migration>
+    </repair-steps>
 </info>

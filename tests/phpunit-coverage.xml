@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    bootstrap="vendor/autoload.php"
+    colors="true"
+    strict="true"
+    verbose="true"
+    cacheResult="true"
+    beStrictAboutDeprecations="true"
+    beStrictAboutTestsThatDoNotTestAnything="true"
+    beStrictAboutOutputDuringTests="true"
+    beStrictAboutResourceUsageDuringSmallTests="true"
+    failOnRisky="true"
+    failOnWarning="true"
+    executionOrder="random"
+    stopOnFailure="false"
+    stopOnError="false"
+    stopOnWarning="false"
+    stopOnRisky="false"
+    stopOnIncomplete="false"
+    stopOnSkipped="false"
+    timeoutForSmallTests="10"
+    timeoutForMediumTests="60"
+    timeoutForLargeTests="300"
+    memoryLimit="512M"
+>
+    <testsuites>
+        <testsuite name="Unit Tests">
+            <directory suffix="Test.php">tests/Service/</directory>
+            <directory suffix="Test.php">tests/Controller/</directory>
+            <directory suffix="Test.php">tests/Settings/</directory>
+            <directory suffix="Test.php">tests/Migration/</directory>
+        </testsuite>
+        
+        <testsuite name="Integration Tests">
+            <directory suffix="Test.php">tests/integration/</directory>
+        </testsuite>
+        
+        <testsuite name="Performance Tests">
+            <directory suffix="Test.php">tests/performance/</directory>
+        </testsuite>
+        
+        <testsuite name="Security Tests">
+            <directory suffix="Test.php">tests/security/</directory>
+        </testsuite>
+    </testsuites>
+
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory>lib/</directory>
+        </include>
+        <exclude>
+            <directory>vendor/</directory>
+            <directory>reference/</directory>
+            <directory>tests/</directory>
+            <directory>node_modules/</directory>
+            <directory>tmp/</directory>
+        </exclude>
+        <report>
+            <html output="tests/coverage/html/" lowUpperBound="85" highLowerBound="95"/>
+            <xml output="tests/coverage/coverage.xml"/>
+            <text output="tests/coverage/coverage.txt"/>
+            <clover output="tests/coverage/clover.xml"/>
+        </report>
+        <threshold>
+            <statements>90</statements>
+            <branches>85</branches>
+            <functions>90</functions>
+            <lines>90</lines>
+        </threshold>
+    </coverage>
+
+    <logging>
+        <junit output="tests/coverage/junit.xml"/>
+        <testdoxHtml output="tests/coverage/testdox.html"/>
+        <testdoxText output="tests/coverage/testdox.txt"/>
+    </logging>
+
+    <resultCache enabled="true" directory="tests/coverage/cache"/>
+
+    <groups>
+        <include>
+            <group>unit</group>
+            <group>integration</group>
+            <group>performance</group>
+            <group>security</group>
+        </include>
+    </groups>
+
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_DRIVER" value="sync"/>
+    </php>
+</phpunit>

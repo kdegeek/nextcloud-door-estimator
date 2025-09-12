@@ -45,3 +45,6 @@ scripts/pricing_data_import.sql
 scripts/*pricing*.json
 scripts/*pricing*.sql
 *.xlsx
+# Ignore secret config files
+.autopilot.json
+mcp_updated.json
