@@ -171,10 +171,14 @@ jobs:
           composer audit || true
 
       - name: Dependency Review (PR only)
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && (steps.sec_changes.outputs.node == 'true' || steps.sec_changes.outputs.php == 'true') }}
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+
+      - name: No dependency changes - skipping Security job
+        if: ${{ steps.sec_changes.outputs.node != 'true' && steps.sec_changes.outputs.php != 'true' }}
+        run: echo "Docs-only changes detected; Security job skipped."
 
   codestyle:
     name: Code Style - ESLint (and PHP CS Fixer if configured)
