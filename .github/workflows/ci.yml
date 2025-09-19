@@ -17,29 +17,59 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect code changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'lib/**'
+              - 'tests/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'composer.json'
+              - 'composer.lock'
+              - 'tsconfig*.json'
+              - 'vite.config.*'
+              - 'jest*.cjs'
+              - 'phpunit*.xml'
+              - '.eslintrc*'
+              - '.stylelintrc*'
+
       - name: Use Node 20
+        if: steps.changes.outputs.code == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.changes.outputs.code == 'true'
         run: npm ci
 
       - name: Lint (ESLint)
+        if: steps.changes.outputs.code == 'true'
         run: npm run lint
 
       - name: Stylelint
+        if: steps.changes.outputs.code == 'true'
         run: npm run stylelint
 
       - name: Test (Jest)
+        if: steps.changes.outputs.code == 'true'
         run: npm test -- --coverage
 
       - name: Upload coverage artifact
+        if: steps.changes.outputs.code == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: node-coverage
           path: coverage
+
+      - name: No code changes - skipping Node job
+        if: steps.changes.outputs.code != 'true'
+        run: echo "Docs-only changes detected; Node job skipped."
 
   php:
     name: PHP - Composer, PHPUnit
@@ -48,24 +78,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect code changes
+        id: php_changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'lib/**'
+              - 'tests/**'
+              - 'composer.json'
+              - 'composer.lock'
+              - 'phpunit*.xml'
+
       - name: Setup PHP
+        if: steps.php_changes.outputs.code == 'true'
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           coverage: xdebug
 
       - name: Install Composer dependencies
+        if: steps.php_changes.outputs.code == 'true'
         uses: ramsey/composer-install@v3
         with:
           composer-options: --no-interaction --no-progress --prefer-dist
 
       - name: PHPUnit
+        if: steps.php_changes.outputs.code == 'true'
         run: |
           if [ -f phpunit.xml ] || [ -f phpunit.xml.dist ]; then
             vendor/bin/phpunit --coverage-text
           else
             echo "No phpunit.xml found, skipping."
           fi
+
+      - name: No code changes - skipping PHP job
+        if: steps.php_changes.outputs.code != 'true'
+        run: echo "Docs-only changes detected; PHP job skipped."
 
   security:
     name: Security - npm/composer audit, dependency review
@@ -74,38 +123,62 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect code changes
+        id: sec_changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            node:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'src/**'
+            php:
+              - 'composer.json'
+              - 'composer.lock'
+              - 'lib/**'
+
       - name: Use Node 20
+        if: steps.sec_changes.outputs.node == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
       - name: Install (prod)
+        if: steps.sec_changes.outputs.node == 'true'
         run: npm ci --omit=dev
 
       - name: npm audit
+        if: steps.sec_changes.outputs.node == 'true'
         run: |
           npm audit --audit-level=high || true
 
       - name: Setup PHP
+        if: steps.sec_changes.outputs.php == 'true'
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
 
       - name: Install Composer (prod)
+        if: steps.sec_changes.outputs.php == 'true'
         uses: ramsey/composer-install@v3
         with:
           composer-options: --no-interaction --no-progress --prefer-dist --no-dev
 
       - name: composer audit
+        if: steps.sec_changes.outputs.php == 'true'
         run: |
           composer audit || true
 
       - name: Dependency Review (PR only)
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && (steps.sec_changes.outputs.node == 'true' || steps.sec_changes.outputs.php == 'true') }}
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+
+      - name: No dependency changes - skipping Security job
+        if: ${{ steps.sec_changes.outputs.node != 'true' && steps.sec_changes.outputs.php != 'true' }}
+        run: echo "Docs-only changes detected; Security job skipped."
 
   codestyle:
     name: Code Style - ESLint (and PHP CS Fixer if configured)
@@ -114,19 +187,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect code changes
+        id: cs_changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            node:
+              - 'src/**'
+              - '.eslintrc*'
+            php:
+              - '**/*.php'
+              - '.php-cs-fixer*.php'
+
       - name: Use Node 20
+        if: steps.cs_changes.outputs.node == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.cs_changes.outputs.node == 'true'
         run: npm ci
 
       - name: ESLint
+        if: steps.cs_changes.outputs.node == 'true'
         run: npm run lint
 
       - name: PHP CS Fixer (optional)
+        if: steps.cs_changes.outputs.php == 'true'
         run: |
           if [ -f .php-cs-fixer.dist.php ] || [ -f .php-cs-fixer.php ]; then
             php -v
@@ -139,3 +228,7 @@ jobs:
           else
             echo "No PHP CS Fixer config; skipping."
           fi
+
+      - name: No code changes - skipping Code Style job
+        if: steps.cs_changes.outputs.node != 'true' && steps.cs_changes.outputs.php != 'true'
+        run: echo "Docs-only changes detected; Code Style job skipped."
